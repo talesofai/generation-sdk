@@ -31,6 +31,44 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
+  it("builds Z-Image Turbo text-to-image requests", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/z-image.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "z-image-turbo",
+      content: [{ type: "text", text: "clean product photo" }],
+      parameters: { size: "1024*1024" },
+    });
+
+    expect(calls[0]?.url).toBe("https://router.neta.art/v1/images/generations");
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "z-image-turbo",
+      prompt: "clean product photo",
+      size: "1024*1024",
+    });
+  });
+
+  it("rejects Z-Image Turbo reference images", async () => {
+    const client = createGenerationClient({ apiKey: "key", fetch: (() => undefined) as unknown as typeof fetch });
+    await expect(
+      client.generate({
+        model: "z-image-turbo",
+        content: [
+          { type: "text", text: "clean product photo" },
+          { type: "image", source: { type: "url", url: "https://example.com/ref.png" } },
+        ],
+      }),
+    ).rejects.toThrow(/image/i);
+  });
+
   it("returns base64 image output", async () => {
     const fetchMock = async () =>
       new Response(JSON.stringify({ data: [{ b64_json: "abc" }] }), {

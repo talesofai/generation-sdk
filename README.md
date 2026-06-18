@@ -106,6 +106,8 @@ const client = createGenerationClient({
 ## Built-in models
 
 - `gpt-image-2`
+- `z-image-turbo`
+- `qwen-image-edit`
 - `gemini-3.1-flash-image-preview`
 - `kling-text-to-video`
 - `kling-image-to-video`
@@ -148,11 +150,32 @@ const output = await client.generate({
 
 These image models use the same client API as the other built-in models:
 
+- `z-image-turbo`
+- `qwen-image-edit`
 - `noobxl-t2i-onediff`
 - `noobxl-i2i-ipa-onediff`
 - `birefnet-general`
 
 ```ts
+await client.generate({
+  model: "z-image-turbo",
+  content: [{ type: "text", text: "a clean product-style image of a small red toy robot" }],
+  parameters: {
+    size: "1024*1024",
+  },
+});
+
+await client.generate({
+  model: "qwen-image-edit",
+  content: [
+    { type: "text", text: "change the background to a clean white studio backdrop" },
+    { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+  ],
+  parameters: {
+    size: "1024x1024",
+  },
+});
+
 await client.generate({
   model: "noobxl-t2i-onediff",
   content: [{ type: "text", text: "anime key visual, luminous city at night" }],
@@ -317,6 +340,7 @@ type GenerationSource =
 Built-in adapters:
 
 - `openai.images`
+- `openai.imageEdits`
 - `gemini.generateContent`
 - `ark.videoGenerations`
 - `kling.videoGenerations`

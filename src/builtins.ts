@@ -19,6 +19,26 @@ const imageSizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const zImageTurboParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024*1024",
+    enum: ["1024*1024", "1536*1024", "1024*1536", "2048*2048"],
+    description: "Output image size.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const qwenImageEditParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024x1024",
+    description: "Output image size.",
+    examples: ["1024x1024", "768x1024", "1024x768"],
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
 const noobxlImageParameters = {
   size: {
     type: "string",
@@ -498,6 +518,64 @@ const builtinModels = [
           model: "gpt-image-2",
           content: [{ type: "text", text: "a cyberpunk cat in neon rain" }],
           parameters: { size: "1024x1024", quality: "auto" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "z-image-turbo",
+    title: "Z-Image Turbo",
+    description:
+      "Fast text-to-image generation through Neta Router. Z-Image Turbo accepts prompt text only; it does not support reference images.",
+    adapter: { type: "openai.images" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
+    },
+    parameters: zImageTurboParameters,
+    examples: [
+      {
+        title: "Text to image",
+        request: {
+          model: "z-image-turbo",
+          content: [
+            { type: "text", text: "a clean product-style image of a small red toy robot standing on a white desk" },
+          ],
+          parameters: { size: "1024*1024" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "qwen-image-edit",
+    title: "Qwen Image Edit",
+    description: "Neta Qwen image editing with one source image URL and an edit instruction.",
+    adapter: { type: "openai.imageEdits" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Edit instruction." },
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description: "Source image URL to edit.",
+        },
+      ],
+    },
+    parameters: qwenImageEditParameters,
+    examples: [
+      {
+        title: "Edit image",
+        request: {
+          model: "qwen-image-edit",
+          content: [
+            { type: "text", text: "change the background to a clean white studio backdrop" },
+            { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+          ],
+          parameters: { size: "1024x1024" },
         },
       },
     ],
