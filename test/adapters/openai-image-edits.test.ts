@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
+import { createGenerationClient, type GenerationProviderError, openAiImageEditsAdapter } from "../../src/index.js";
 
 describe("openai.imageEdits adapter", () => {
   it("builds image edit requests", async () => {
@@ -32,6 +32,82 @@ describe("openai.imageEdits adapter", () => {
     expect(body.get("image")).toBe("https://example.com/input.png");
     expect(body.get("size")).toBe("1024x1024");
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/edited.png" } });
+  });
+
+  it("exposes new-api cost metadata for image edits", async () => {
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          data: [{ url: "https://example.com/edited.png" }],
+          new_api: {
+            request_id: "router-request-1",
+            cost: 0.08,
+            cost_origin: 0.16,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const result = await client.generateResult({
+      model: "qwen-image-edit",
+      content: [
+        { type: "text", text: "change the background" },
+        { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+      ],
+    });
+
+    expect(result.content[0]).toEqual({
+      type: "image",
+      source: { type: "url", url: "https://example.com/edited.png" },
+    });
+    expect(result.meta).toEqual({
+      cost: 0.08,
+      costOrigin: 0.16,
+    });
+  });
+
+  it("keeps the public openai image edits adapter array return contract", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/edited.png" }], new_api: { cost: 0.08 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const output = await openAiImageEditsAdapter({
+      declaration: {
+        schema: "neta.generation.model.v1",
+        model: "qwen-image-edit",
+        adapter: { type: "openai.imageEdits" },
+        content: {
+          input: [
+            { type: "text", required: true },
+            { type: "image", required: true, sources: ["url"] },
+          ],
+        },
+      },
+      request: {
+        model: "qwen-image-edit",
+        content: [
+          { type: "text", text: "change the background" },
+          { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+        ],
+      },
+      parameters: {},
+      meta: {},
+      context: {
+        apiKey: "key",
+        baseUrl: "https://router.neta.art",
+        fetch: fetchMock as typeof fetch,
+        resolveSource: (source) => {
+          if (source.type === "url") return source.url;
+          return source.data;
+        },
+      },
+    });
+
+    expect(Array.isArray(output)).toBe(true);
+    expect(output).toEqual([{ type: "image", source: { type: "url", url: "https://example.com/edited.png" } }]);
   });
 
   it("rejects non-url image input", async () => {

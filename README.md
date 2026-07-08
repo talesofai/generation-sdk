@@ -31,6 +31,20 @@ const output = await client.generate({
 console.log(output);
 ```
 
+Use `generateResult` when you need observed new-api cost:
+
+```ts
+const result = await client.generateResult({
+  model: "gpt-image-2",
+  content: [{ type: "text", text: "a small red toy robot on a white desk" }],
+});
+
+console.log(result.content);
+console.log(result.meta?.cost, result.meta?.costOrigin);
+```
+
+`meta.cost` maps to Router `new_api.cost`; `meta.costOrigin` maps to Router `new_api.cost_origin`.
+
 `baseUrl` defaults to `https://router.neta.art`. Pass a different endpoint when needed:
 
 ```ts
