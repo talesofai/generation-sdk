@@ -115,6 +115,32 @@ describe("openai.images adapter", () => {
     });
   });
 
+  it("builds Krea 2 text-to-image requests", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/krea2.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "krea2",
+      content: [{ type: "text", text: "cinematic mountain cabin" }],
+      parameters: { size: "1536x1024", seed: 123456 },
+    });
+
+    expect(calls[0]?.url).toBe("https://router.neta.art/v1/images/generations");
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "krea2",
+      prompt: "cinematic mountain cabin",
+      size: "1536x1024",
+      seed: 123456,
+    });
+  });
+
   it("rejects Z-Image Turbo reference images", async () => {
     const client = createGenerationClient({ apiKey: "key", fetch: (() => undefined) as unknown as typeof fetch });
     await expect(

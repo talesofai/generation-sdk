@@ -132,6 +132,7 @@ const client = createGenerationClient({
 ## Built-in models
 
 - `gpt-image-2`
+- `krea2`
 - `z-image-turbo`
 - `qwen-image-edit`
 - `gemini-3.1-flash-image-preview`
@@ -176,6 +177,7 @@ const output = await client.generate({
 
 These image models use the same client API as the other built-in models:
 
+- `krea2`
 - `z-image-turbo`
 - `qwen-image-edit`
 - `noobxl-t2i-onediff`
@@ -183,6 +185,15 @@ These image models use the same client API as the other built-in models:
 - `birefnet-general`
 
 ```ts
+await client.generate({
+  model: "krea2",
+  content: [{ type: "text", text: "a cinematic mountain cabin at sunrise" }],
+  parameters: {
+    size: "1536x1024",
+    seed: 123456,
+  },
+});
+
 await client.generate({
   model: "z-image-turbo",
   content: [{ type: "text", text: "a clean product-style image of a small red toy robot" }],

@@ -29,6 +29,22 @@ const zImageTurboParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const krea2ImageParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024x1024",
+    description: "Output image size as WIDTHxHEIGHT. Each side must be 1024-2048 and divisible by 16.",
+    examples: ["1024x1024", "1536x1024", "1024x1536", "2048x2048"],
+  },
+  seed: {
+    type: "integer",
+    optional: true,
+    min: 0,
+    description: "Random seed for reproducibility.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
 const qwenImageEditParameters = {
   size: {
     type: "string",
@@ -548,6 +564,27 @@ const builtinModels = [
             { type: "text", text: "a clean product-style image of a small red toy robot standing on a white desk" },
           ],
           parameters: { size: "1024*1024" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "krea2",
+    title: "Krea 2",
+    description: "Krea 2 text-to-image generation through Neta Router.",
+    adapter: { type: "openai.images" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
+    },
+    parameters: krea2ImageParameters,
+    examples: [
+      {
+        title: "Text to image",
+        request: {
+          model: "krea2",
+          content: [{ type: "text", text: "a cinematic mountain cabin at sunrise, soft natural light" }],
+          parameters: { size: "1536x1024", seed: 123456 },
         },
       },
     ],

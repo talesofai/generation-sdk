@@ -18,6 +18,21 @@ describe("config", () => {
     expect(declaration.model).toBe("gpt-image-2");
   });
 
+  it("exposes the Krea 2 model contract", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("krea2")).toMatchObject({
+      model: "krea2",
+      adapter: { type: "openai.images" },
+      parameters: {
+        size: {
+          type: "string",
+          optional: true,
+          default: "1024x1024",
+        },
+      },
+    });
+  });
+
   it("roundtrips built-in model meta declarations", () => {
     const raw = stringifyBuiltinModelConfig("suno_image_to_song_chirp_v5");
     const declaration = parseGenerationModelDeclaration(raw, "suno_image_to_song_chirp_v5.yaml");
