@@ -1,4 +1,4 @@
-import { getGenerationAdapter } from "./adapters/index.js";
+import { getGenerationAdapter, tryGetGenerationAdapter } from "./adapters/index.js";
 import { builtinGenerationModels } from "./builtins.js";
 import {
   readGenerationModelDeclarationsFromDirectory,
@@ -9,7 +9,12 @@ import {
 } from "./config.js";
 import { GenerationConfigError } from "./errors.js";
 import { createDebugFetch } from "./http.js";
-import { extractGenerationResultFields, type GenerationResultFields } from "./response-fields.js";
+import {
+  extractGenerationResultFields,
+  extractGenerationResultHeaderFields,
+  type GenerationResultFields,
+  type GenerationResultHeaderFields,
+} from "./response-fields.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
   CreateGenerationClientOptions,
@@ -118,19 +123,24 @@ function resolveModels(options: CreateGenerationClientOptions): GenerationModelD
 
 function createResultFieldCaptureFetch(
   fetchFn: typeof fetch,
-  onFields: (fields: GenerationResultFields) => void,
+  onFields: (
+    fields: GenerationResultFields | undefined,
+    headerFields: GenerationResultHeaderFields | undefined,
+  ) => void,
 ): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const response = await fetchFn(input, init);
+    const headerFields = extractGenerationResultHeaderFields(response.headers);
     const contentType = response.headers.get("content-type") ?? "";
+    let fields: GenerationResultFields | undefined;
     if (contentType.includes("application/json") || contentType.includes("+json")) {
       try {
-        const fields = extractGenerationResultFields(await response.clone().json());
-        if (fields) onFields(fields);
+        fields = extractGenerationResultFields(await response.clone().json());
       } catch {
         // No JSON body, no result fields.
       }
     }
+    if (fields || headerFields) onFields(fields, headerFields);
     return response;
   }) as typeof fetch;
 }
@@ -158,7 +168,9 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       mergeGenerationMeta({ ...(request.metadata ?? {}), ...(request.meta ?? {}) }, request.content),
       request.content,
     );
-    return { declaration: cloneJson(declaration), request: cloneJson(request), parameters, meta };
+    const resolved = { declaration: cloneJson(declaration), request, parameters, meta };
+    tryGetGenerationAdapter(declaration.adapter.type, options.adapters)?.validate?.(resolved);
+    return { ...resolved, request: cloneJson(request) };
   }
 
   async function runAdapter(request: GenerateRequest, fetch: typeof globalThis.fetch) {
@@ -188,8 +200,16 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
 
     async generateResult(request: GenerateRequest): Promise<GenerationResult> {
       let capturedFields: GenerationResultFields | undefined;
-      const captureFetch = createResultFieldCaptureFetch(adapterFetch, (fields) => {
-        capturedFields = { ...capturedFields, ...fields };
+      let capturedBodyRequestId: string | undefined;
+      let capturedRequestId: string | undefined;
+      let capturedOneApiRequestId: string | undefined;
+      const captureFetch = createResultFieldCaptureFetch(adapterFetch, (fields, headerFields) => {
+        if (fields) capturedFields = { ...capturedFields, ...fields };
+        if (fields?.requestId) capturedBodyRequestId = fields.requestId;
+        if (headerFields?.requestId) capturedRequestId = headerFields.requestId;
+        if (headerFields?.oneApiRequestId) capturedOneApiRequestId = headerFields.oneApiRequestId;
+        const requestId = capturedBodyRequestId ?? capturedRequestId ?? capturedOneApiRequestId;
+        if (requestId) capturedFields = { ...capturedFields, requestId };
       });
       const content = await runAdapter(request, captureFetch);
       return { content, ...(capturedFields ?? {}) };

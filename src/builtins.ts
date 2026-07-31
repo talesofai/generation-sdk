@@ -573,7 +573,158 @@ function geminiImageModel(
   };
 }
 
+function qwenTtsModel(model: string, title: string, description: string): GenerationModelDeclaration {
+  const text =
+    model === "qwen-tts" ? "这是一次清晰自然的语音合成测试。" : "这是一段长度足够并且表达清晰自然的语音合成测试文本。";
+  return {
+    schema: MODEL_SCHEMA,
+    model,
+    title,
+    description,
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "The single text block to speak.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 1,
+          sources: ["url"],
+          description: "Optional HTTP(S) reference audio for voice cloning.",
+        },
+      ],
+    },
+    meta: {
+      fields: {
+        voice_prompt: {
+          type: "string",
+          optional: true,
+          description: "Voice design description. Mutually exclusive with reference audio.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Voice design",
+        request: {
+          model,
+          content: [{ type: "text", text }],
+          meta: { voice_prompt: "一位沉稳干练的男性播音员声音，吐字清晰有力" },
+        },
+      },
+      {
+        title: "Voice clone",
+        request: {
+          model,
+          content: [
+            { type: "text", text },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+const audioSpeechModels = [
+  qwenTtsModel("qwen-tts", "Qwen TTS", "Text-to-speech with either voice design or single-reference voice cloning."),
+  qwenTtsModel(
+    "qwen-audio-3.0-tts-plus",
+    "Qwen Audio 3.0 TTS Plus",
+    "Qwen Audio 3.0 Plus text-to-speech with voice design or reference-audio cloning.",
+  ),
+  qwenTtsModel(
+    "qwen-audio-3.0-tts-flash",
+    "Qwen Audio 3.0 TTS Flash",
+    "Qwen Audio 3.0 Flash text-to-speech with voice design or reference-audio cloning.",
+  ),
+  {
+    schema: MODEL_SCHEMA,
+    model: "higgs-tts",
+    title: "Higgs TTS",
+    description: "Text-to-speech with a default voice or up to 16 weighted voice references.",
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "The single text block to speak.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 16,
+          sources: ["url"],
+          description: "Optional HTTP(S) reference audio for voice cloning or fusion.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Default voice",
+        request: {
+          model: "higgs-tts",
+          content: [{ type: "text", text: "使用默认音色朗读这段文本。" }],
+        },
+      },
+      {
+        title: "Single reference",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用单条参考音频朗读这段文本。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+      {
+        title: "Weighted single reference",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用带权重的单条参考音频朗读这段文本。" },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference.mp3" },
+              meta: { weight: 1 },
+            },
+          ],
+        },
+      },
+      {
+        title: "Multiple references",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用多参考融合音色朗读这段文本。" },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference-a.mp3" },
+              meta: { weight: 0.5 },
+            },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference-b.mp3" },
+              meta: { weight: 0.5 },
+            },
+          ],
+        },
+      },
+    ],
+  },
+] satisfies GenerationModelDeclaration[];
+
 const builtinModels = [
+  ...audioSpeechModels,
   {
     schema: MODEL_SCHEMA,
     model: "gpt-image-2",

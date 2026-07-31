@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createGenerationClient, GenerationValidationError } from "../src/index.js";
+import {
+  createGenerationClient,
+  type GenerationAdapter,
+  type GenerationModelDeclaration,
+  GenerationUnsupportedAdapterError,
+  GenerationValidationError,
+  MODEL_SCHEMA,
+} from "../src/index.js";
 
 describe("validation", () => {
   it("resolves default parameters", () => {
@@ -68,4 +75,133 @@ describe("validation", () => {
       }),
     ).toThrow("video role is required by seedance-2-0-fast");
   });
+
+  it("runs a custom adapter validation hook exactly once per validate or generate call", async () => {
+    let validationCalls = 0;
+    let adapterCalls = 0;
+    const adapter: GenerationAdapter = Object.assign(
+      async () => {
+        adapterCalls += 1;
+        return [];
+      },
+      {
+        validate: () => {
+          validationCalls += 1;
+        },
+      },
+    );
+    const model = customModel("custom.validated");
+    const client = createGenerationClient({
+      apiKey: "test",
+      models: [model],
+      includeBuiltinModels: false,
+      adapters: { "custom.adapter": adapter },
+    });
+    const request = { model: model.model, content: [{ type: "text" as const, text: "hello" }] };
+
+    client.validate(request);
+    expect(validationCalls).toBe(1);
+    expect(adapterCalls).toBe(0);
+
+    validationCalls = 0;
+    await client.generate(request);
+    expect(validationCalls).toBe(1);
+    expect(adapterCalls).toBe(1);
+  });
+
+  it("keeps a body request ID ahead of later header fallbacks across multiple fetches", async () => {
+    const model = customModel("custom.multi-fetch");
+    const responses = [
+      new Response(JSON.stringify({ request_id: "body-request" }), {
+        headers: { "content-type": "application/json", "x-request-id": "first-header" },
+      }),
+      new Response("ok", { headers: { "content-type": "text/plain", "x-request-id": "later-header" } }),
+    ];
+    const fetchMock = async () => responses.shift() as Response;
+    const adapter: GenerationAdapter = async (input) => {
+      await input.context.fetch("https://example.com/first");
+      await input.context.fetch("https://example.com/second");
+      return [];
+    };
+    const client = createGenerationClient({
+      apiKey: "test",
+      fetch: fetchMock as typeof fetch,
+      models: [model],
+      includeBuiltinModels: false,
+      adapters: { "custom.adapter": adapter },
+    });
+
+    await expect(
+      client.generateResult({ model: model.model, content: [{ type: "text", text: "hello" }] }),
+    ).resolves.toMatchObject({ requestId: "body-request" });
+  });
+
+  it("keeps x-request-id ahead of a later x-oneapi-request-id across multiple fetches", async () => {
+    const model = customModel("custom.multi-header-fetch");
+    const responses = [
+      new Response("first", { headers: { "x-request-id": "primary-header" } }),
+      new Response("second", { headers: { "x-oneapi-request-id": "later-fallback-header" } }),
+    ];
+    const fetchMock = async () => responses.shift() as Response;
+    const adapter: GenerationAdapter = async (input) => {
+      await input.context.fetch("https://example.com/first");
+      await input.context.fetch("https://example.com/second");
+      return [];
+    };
+    const client = createGenerationClient({
+      apiKey: "test",
+      fetch: fetchMock as typeof fetch,
+      models: [model],
+      includeBuiltinModels: false,
+      adapters: { "custom.adapter": adapter },
+    });
+
+    await expect(
+      client.generateResult({ model: model.model, content: [{ type: "text", text: "hello" }] }),
+    ).resolves.toMatchObject({ requestId: "primary-header" });
+  });
+
+  it("keeps custom adapters without hooks compatible", async () => {
+    const model = customModel("custom.no-hook");
+    const adapter: GenerationAdapter = async () => [];
+    const client = createGenerationClient({
+      apiKey: "test",
+      models: [model],
+      includeBuiltinModels: false,
+      adapters: { "custom.adapter": adapter },
+    });
+    const request = { model: model.model, content: [{ type: "text" as const, text: "hello" }] };
+
+    expect(() => client.validate(request)).not.toThrow();
+    await expect(client.generate(request)).resolves.toEqual([]);
+  });
+
+  it("keeps validation non-throwing for an unregistered custom adapter", async () => {
+    const model = customModel("custom.unregistered");
+    const client = createGenerationClient({
+      apiKey: "test",
+      models: [model],
+      includeBuiltinModels: false,
+    });
+    const request = { model: model.model, content: [{ type: "text" as const, text: "hello" }] };
+
+    expect(() => client.validate(request)).not.toThrow();
+    await expect(client.generate(request)).rejects.toBeInstanceOf(GenerationUnsupportedAdapterError);
+  });
+
+  it("does not expose the internal adapter validation lookup", async () => {
+    const packageExports = await import("../src/index.js");
+    expect(packageExports).not.toHaveProperty("tryGetGenerationAdapter");
+  });
 });
+
+function customModel(model: string): GenerationModelDeclaration {
+  return {
+    schema: MODEL_SCHEMA,
+    model,
+    adapter: { type: "custom.adapter" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 1 }],
+    },
+  };
+}

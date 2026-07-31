@@ -1,0 +1,66 @@
+schema: neta.generation.model.v1
+model: higgs-tts
+title: Higgs TTS
+description: Text-to-speech with a default voice or up to 16 weighted voice references.
+adapter:
+  type: openai.audioSpeech
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 1
+      description: The single text block to speak.
+    - type: audio
+      required: false
+      max: 16
+      sources:
+        - url
+      description: Optional HTTP(S) reference audio for voice cloning or fusion.
+examples:
+  - title: Default voice
+    request:
+      model: higgs-tts
+      content:
+        - type: text
+          text: 使用默认音色朗读这段文本。
+  - title: Single reference
+    request:
+      model: higgs-tts
+      content:
+        - type: text
+          text: 使用单条参考音频朗读这段文本。
+        - type: audio
+          source:
+            type: url
+            url: https://example.com/reference.mp3
+  - title: Weighted single reference
+    request:
+      model: higgs-tts
+      content:
+        - type: text
+          text: 使用带权重的单条参考音频朗读这段文本。
+        - type: audio
+          source:
+            type: url
+            url: https://example.com/reference.mp3
+          meta:
+            weight: 1
+  - title: Multiple references
+    request:
+      model: higgs-tts
+      content:
+        - type: text
+          text: 使用多参考融合音色朗读这段文本。
+        - type: audio
+          source:
+            type: url
+            url: https://example.com/reference-a.mp3
+          meta:
+            weight: 0.5
+        - type: audio
+          source:
+            type: url
+            url: https://example.com/reference-b.mp3
+          meta:
+            weight: 0.5

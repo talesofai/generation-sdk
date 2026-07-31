@@ -1,4 +1,14 @@
-export * from "./adapters/index.js";
+export {
+  arkVideoGenerationsAdapter,
+  audioSpeechAdapter,
+  builtinGenerationAdapters,
+  geminiGenerateContentAdapter,
+  getGenerationAdapter,
+  klingVideoGenerationsAdapter,
+  openAiImageEditsAdapter,
+  openAiImagesAdapter,
+  sunoTasksAdapter,
+} from "./adapters/index.js";
 export * from "./builtins.js";
 export * from "./client.js";
 export * from "./config.js";

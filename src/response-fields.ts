@@ -14,6 +14,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+export type GenerationResultHeaderFields = {
+  requestId?: string;
+  oneApiRequestId?: string;
+};
+
+export function extractGenerationResultHeaderFields(headers: Headers): GenerationResultHeaderFields | undefined {
+  const requestId = headers.get("x-request-id")?.trim() || undefined;
+  const oneApiRequestId = headers.get("x-oneapi-request-id")?.trim() || undefined;
+  return requestId || oneApiRequestId
+    ? { ...(requestId ? { requestId } : {}), ...(oneApiRequestId ? { oneApiRequestId } : {}) }
+    : undefined;
+}
+
 export function extractGenerationResultFields(raw: unknown): GenerationResultFields | undefined {
   if (!isRecord(raw)) return undefined;
   const usage = isRecord(raw.usage) ? raw.usage : undefined;

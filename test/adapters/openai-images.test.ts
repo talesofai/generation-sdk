@@ -90,6 +90,25 @@ describe("openai.images adapter", () => {
     });
   });
 
+  it("uses response headers as a request ID fallback without changing body priority", async () => {
+    const responses = [
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/header.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json", "x-request-id": "header-request" },
+      }),
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/body.png" }], request_id: "body-request" }), {
+        status: 200,
+        headers: { "content-type": "application/json", "x-request-id": "ignored-header-request" },
+      }),
+    ];
+    const fetchMock = async () => responses.shift() as Response;
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const request = { model: "gpt-image-2", content: [{ type: "text" as const, text: "hello" }] };
+
+    await expect(client.generateResult(request)).resolves.toMatchObject({ requestId: "header-request" });
+    await expect(client.generateResult(request)).resolves.toMatchObject({ requestId: "body-request" });
+  });
+
   it("keeps generate compatible without metadata response cloning", async () => {
     let cloneCalls = 0;
     const fetchMock = async () =>

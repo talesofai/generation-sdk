@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -205,6 +205,14 @@ describe("config", () => {
       const size = client.getModel(model)?.parameters?.size;
       expect(size, model).toMatchObject({ type: "string", default: "1024x1024", enum: expected });
     }
+  });
+
+  it("does not publish the retired Qwen preview field", async () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of ["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]) {
+      expect(client.stringifyModelConfig(model)).not.toContain("preview_text");
+    }
+    expect(await readFile(join(process.cwd(), "README.md"), "utf8")).not.toContain("preview_text");
   });
 
   it("validates every built-in model example", () => {
