@@ -96,6 +96,7 @@ const noobxlImageToImageParameters = {
 } satisfies GenerationModelDeclaration["parameters"];
 
 function seedanceVideoParameters(defaults: { resolution: string; resolutions?: string[]; maxWait: number }) {
+  const supportedRatios = ["16:9", "9:16"];
   return {
     duration: {
       type: "integer",
@@ -116,8 +117,14 @@ function seedanceVideoParameters(defaults: { resolution: string; resolutions?: s
       type: "string",
       optional: true,
       default: "16:9",
-      enum: ["16:9", "9:16", "1:1", "4:3", "3:2", "2:3", "3:4", "21:9", "adaptive"],
-      description: "Output aspect ratio. Use adaptive to let the model choose.",
+      enum: supportedRatios,
+      description: "Supported output aspect ratios are 16:9 and 9:16.",
+    },
+    aspect_ratio: {
+      type: "string",
+      optional: true,
+      enum: supportedRatios,
+      description: "Deprecated compatibility alias for ratio. Use ratio.",
     },
     fps: { type: "integer", optional: true, default: 30, min: 1, max: 60, description: "Frames per second." },
     seed: { type: "integer", optional: true, description: "Random seed for reproducibility." },

@@ -251,11 +251,32 @@ describe("config", () => {
     ).toThrow("Unknown parameter: image_size");
   });
 
-  it("uses ratio as the only Seedance aspect-ratio parameter", () => {
+  it("publishes the supported Seedance ratios and compatibility alias", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
-      expect(client.getModel(model)?.parameters).toHaveProperty("ratio");
-      expect(client.getModel(model)?.parameters).not.toHaveProperty("aspect_ratio");
+      expect(client.getModel(model)?.parameters?.ratio).toMatchObject({
+        enum: ["16:9", "9:16"],
+      });
+      expect(client.getModel(model)?.parameters?.aspect_ratio).toMatchObject({
+        optional: true,
+        enum: ["16:9", "9:16"],
+        description: "Deprecated compatibility alias for ratio. Use ratio.",
+      });
+    }
+  });
+
+  it("rejects unsupported Seedance ratios before provider execution", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
+      for (const ratio of ["1:1", "adaptive", "2:3", "21:9"]) {
+        expect(() =>
+          client.validate({
+            model,
+            content: [{ type: "text", text: "a motion study" }],
+            parameters: { ratio },
+          }),
+        ).toThrow("Parameter ratio must be one of: 16:9, 9:16");
+      }
     }
   });
 

@@ -120,15 +120,21 @@ describe("ark.videoGenerations adapter", () => {
     expect(metadata.ratio).toBe("9:16");
   });
 
-  it("rejects the removed aspect_ratio alias", async () => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({
-        model: "seedance-2-0-fast",
-        content: [textBlock("a vertical shot")],
-        parameters: { aspect_ratio: "9:16" },
-      }),
-    ).toThrow("Unknown parameter: aspect_ratio");
+  it("maps the aspect_ratio compatibility alias to canonical metadata", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([textBlock("a vertical shot")], {
+      aspect_ratio: "9:16",
+    });
+    const body = parseCreateBody(calls);
+    expect((body.metadata as Record<string, unknown>).ratio).toBe("9:16");
+  });
+
+  it("prefers ratio over the compatibility alias when both are supplied", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([textBlock("a landscape shot")], {
+      ratio: "16:9",
+      aspect_ratio: "9:16",
+    });
+    const body = parseCreateBody(calls);
+    expect((body.metadata as Record<string, unknown>).ratio).toBe("16:9");
   });
 
   it("sends first and last frames as metadata media content without text blocks", async () => {
