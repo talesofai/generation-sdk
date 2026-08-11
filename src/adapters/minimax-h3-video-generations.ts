@@ -6,7 +6,7 @@ import { mergeTextBlocks } from "../validation.js";
 
 const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 2;
-const DEFAULT_MAX_WAIT_SEC = 600;
+const DEFAULT_MAX_WAIT_SEC = 1200;
 const MIN_DURATION_SEC = 4;
 const MAX_DURATION_SEC = 15;
 const MAX_MEDIA_COUNT = 12;
