@@ -1,3 +1,5 @@
+import type { WebSocket } from "ws";
+
 export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
 
 export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
@@ -192,9 +194,27 @@ export type CreateGenerationClientOptions = {
   debug?: boolean | GenerationDebugOptions;
 };
 
+export type ConnectRealtimeOptions = {
+  /** Overrides the client's apiKey for this connection. */
+  apiKey?: string;
+  /** Overrides the client's baseUrl for this connection. */
+  baseUrl?: string;
+  /** Extra query parameters appended to the /v1/realtime URL, alongside `model`. */
+  query?: Record<string, string>;
+  /** Extra WebSocket handshake headers, merged after Authorization. */
+  headers?: Record<string, string>;
+};
+
 export type GenerationClient = {
   /** Validates the request and sends it to the model adapter. */
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
+  /**
+   * Opens a raw WebSocket to /v1/realtime for the given model (OpenAI
+   * Realtime API compatible). This is a byte-level connection, not a parsed
+   * realtime-protocol client: no event validation happens here, matching
+   * neta-router's own no-content-inspection scope for this route.
+   */
+  connectRealtime(model: string, options?: ConnectRealtimeOptions): WebSocket;
   /** Resolves model defaults and all available validation rules without requiring an API key or making a network request. */
   validate(request: GenerateRequest): ResolvedGenerationRequest;
   /** Returns cloned, machine-readable declarations for every available model. */
