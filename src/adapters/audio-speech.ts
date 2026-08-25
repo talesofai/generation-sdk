@@ -164,9 +164,10 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
 
   // The bare `ref_audio` shortcut has no way to carry a transcript, so a
   // solo reference that supplies meta.text must go through `references`
-  // below even without an explicit weight -- new-api's own weight
-  // validation runs unconditionally there (see its adaptor_test.go), so a
-  // still-missing weight is defaulted to 1 rather than left absent.
+  // below even without an explicit weight -- the wire contract rejects a
+  // missing/zero weight there regardless of reference count, so default a
+  // still-missing one to 1 rather than leave it absent (see the "routes a
+  // solo reference with only meta.text..." test for the exact payload shape).
   const firstAudio = audio[0];
   const firstHasText = firstAudio?.meta?.text !== undefined;
   if (audio.length === 1 && firstAudio && !firstHasText && (!hasOwnWeight(firstAudio) || firstAudio.meta?.weight === undefined)) {
