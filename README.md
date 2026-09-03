@@ -177,6 +177,7 @@ const client = createGenerationClient({
 - `gemini-3.1-flash-image-preview`
 - `kling-text-to-video`
 - `kling-image-to-video`
+- `kling-v3`
 - `kling-omni-video`
 - `kling-multi-image-to-video`
 - `seedance-2-0`

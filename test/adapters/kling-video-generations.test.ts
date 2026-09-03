@@ -103,6 +103,7 @@ describe("kling.videoGenerations adapter", () => {
       "kling-multi-image-to-video",
       "kling-omni-video",
       "kling-text-to-video",
+      "kling-v3",
     ]);
   });
 
@@ -204,6 +205,115 @@ describe("kling.videoGenerations adapter", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("routes kling-v3 text-only requests to text-to-video", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-v3",
+        content: [textBlock("paper boat on calm water")],
+        parameters: { duration: 10, aspect_ratio: "9:16", mode: "pro", poll_interval: 1 },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.url).toBe("https://router.example/kling/v1/videos/text2video");
+      expect(requests[1]?.url).toBe("https://router.example/kling/v1/videos/text2video/task-1");
+      expect(requests[0]?.body).toEqual({
+        model_name: "kling-v3",
+        prompt: "paper boat on calm water",
+        duration: "10",
+        mode: "pro",
+        cfg_scale: 0.5,
+        aspect_ratio: "9:16",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("routes kling-v3 image requests to image-to-video", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-v3",
+        content: [
+          textBlock("gently turn toward the camera"),
+          imageBlock("https://example.com/first.png"),
+          imageBlock("https://example.com/last.png"),
+        ],
+        parameters: { poll_interval: 1 },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.url).toBe("https://router.example/kling/v1/videos/image2video");
+      expect(requests[1]?.url).toBe("https://router.example/kling/v1/videos/image2video/task-1");
+      expect(requests[0]?.body).toEqual({
+        model_name: "kling-v3",
+        prompt: "gently turn toward the camera",
+        duration: "5",
+        mode: "std",
+        cfg_scale: 0.5,
+        aspect_ratio: "16:9",
+        image: "https://example.com/first.png",
+        image_tail: "https://example.com/last.png",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("routes kling-v3 native image meta to image-to-video", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-v3",
+        content: [textBlock("gently turn toward the camera")],
+        parameters: { poll_interval: 1 },
+        meta: { image: "provider-native-image-base64" },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.url).toBe("https://router.example/kling/v1/videos/image2video");
+      expect(requests[0]?.body).toMatchObject({
+        model_name: "kling-v3",
+        image: "provider-native-image-base64",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects omni media on kling-v3", async () => {
+    const { client, requests } = createClient();
+    await expect(
+      client.generate({
+        model: "kling-v3",
+        content: [textBlock("follow the reference")],
+        meta: { element_list: [{ element_id: 123 }] },
+      }),
+    ).rejects.toThrow("kling-v3 only supports text-to-video and image-to-video");
+    await expect(
+      client.generate({
+        model: "kling-v3",
+        content: [textBlock("follow the reference")],
+        meta: { video_list: [{ video_url: "https://example.com/ref.mp4" }] },
+      }),
+    ).rejects.toThrow("kling-v3 only supports text-to-video and image-to-video");
+    await expect(
+      client.generate({
+        model: "kling-v3",
+        content: [textBlock("follow the reference")],
+        meta: { image_list: [{ image_url: "https://example.com/ref.png", type: "first_frame" }] },
+      }),
+    ).rejects.toThrow("kling-v3 only supports text-to-video and image-to-video");
+    expect(requests).toHaveLength(0);
   });
 
   it("posts bare base64 for latest Kling image-to-video payload", async () => {

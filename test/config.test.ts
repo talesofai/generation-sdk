@@ -261,6 +261,7 @@ describe("config", () => {
       "kling-image-to-video",
       "kling-multi-image-to-video",
       "kling-omni-video",
+      "kling-v3",
       "noobxl-i2i-ipa-onediff",
       "suno_image_to_song_chirp_v5",
       "suno_upload_audio",

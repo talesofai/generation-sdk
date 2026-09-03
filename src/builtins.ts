@@ -950,6 +950,48 @@ const builtinModels = [
   },
   {
     schema: MODEL_SCHEMA,
+    model: "kling-v3",
+    title: "Kling V3",
+    description:
+      "Kling V3 text-to-video and image-to-video. Text-only input uses text-to-video; image input uses image-to-video.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+        {
+          type: "image",
+          required: false,
+          max: 2,
+          sources: ["url", "base64"],
+          description: "Optional first frame and tail frame. When present, the request uses image-to-video.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "kling-v3",
+          content: [{ type: "text", text: "a small paper boat floating on calm water, cinematic motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9", mode: "std" },
+        },
+      },
+      {
+        title: "Image to video",
+        request: {
+          model: "kling-v3",
+          content: [
+            { type: "text", text: "gently turn toward the camera with soft natural motion" },
+            { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+          ],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
     model: "kling-omni-video",
     title: "Kling Omni Video",
     category: "video",

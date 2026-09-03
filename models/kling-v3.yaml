@@ -1,0 +1,98 @@
+schema: neta.generation.model.v1
+model: kling-v3
+title: Kling V3
+description: Kling V3 text-to-video and image-to-video. Text-only input uses text-to-video; image input uses image-to-video.
+adapter:
+  type: kling.videoGenerations
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Video prompt.
+    - type: image
+      required: false
+      max: 2
+      sources:
+        - url
+      description: Optional first frame and tail frame. When present, the request uses image-to-video.
+parameters:
+  duration:
+    type: integer
+    optional: true
+    default: 5
+    min: 5
+    max: 10
+    description: Video duration in seconds.
+  aspect_ratio:
+    type: string
+    optional: true
+    default: 16:9
+    enum:
+      - 16:9
+      - 9:16
+      - 1:1
+    description: Output aspect ratio.
+  mode:
+    type: string
+    optional: true
+    default: std
+    enum:
+      - std
+      - pro
+    description: Kling generation mode.
+  cfg_scale:
+    type: number
+    optional: true
+    default: 0.5
+    min: 0
+    max: 1
+    description: Prompt adherence scale.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 30
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 900
+    min: 30
+    max: 1800
+    description: Maximum seconds to wait for task completion.
+  negative_prompt:
+    type: string
+    optional: true
+    description: Negative prompt.
+  seed:
+    type: integer
+    optional: true
+    description: Random seed for reproducibility.
+examples:
+  - title: Text to video
+    request:
+      model: kling-v3
+      content:
+        - type: text
+          text: a small paper boat floating on calm water, cinematic motion
+      parameters:
+        duration: 5
+        aspect_ratio: 16:9
+        mode: std
+  - title: Image to video
+    request:
+      model: kling-v3
+      content:
+        - type: text
+          text: gently turn toward the camera with soft natural motion
+        - type: image
+          source:
+            type: url
+            url: https://example.com/input.png
+      parameters:
+        duration: 5
+        aspect_ratio: 16:9

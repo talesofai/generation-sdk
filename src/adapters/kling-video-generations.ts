@@ -9,26 +9,33 @@ const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 5;
 const DEFAULT_MAX_WAIT_SEC = 900;
 
-type KlingImageMode = "none" | "single" | "omni" | "multi";
+type KlingImageMode = "none" | "single" | "omni" | "multi" | "auto";
 
-const KLING_MODELS: Record<
-  string,
-  {
-    submitPath: string;
-    defaultModelName: string;
-    imageMode: KlingImageMode;
-    allowPromptlessOmni?: boolean;
-  }
-> = {
+const KLING_TEXT_TO_VIDEO_PATH = "/kling/v1/videos/text2video";
+const KLING_IMAGE_TO_VIDEO_PATH = "/kling/v1/videos/image2video";
+
+type KlingModelConfig = {
+  submitPath: string;
+  defaultModelName: string;
+  imageMode: KlingImageMode;
+  allowPromptlessOmni?: boolean;
+};
+
+const KLING_MODELS: Record<string, KlingModelConfig> = {
   "kling-text-to-video": {
-    submitPath: "/kling/v1/videos/text2video",
+    submitPath: KLING_TEXT_TO_VIDEO_PATH,
     defaultModelName: "kling-v3",
     imageMode: "none",
   },
   "kling-image-to-video": {
-    submitPath: "/kling/v1/videos/image2video",
+    submitPath: KLING_IMAGE_TO_VIDEO_PATH,
     defaultModelName: "kling-v3",
     imageMode: "single",
+  },
+  "kling-v3": {
+    submitPath: KLING_TEXT_TO_VIDEO_PATH,
+    defaultModelName: "kling-v3",
+    imageMode: "auto",
   },
   "kling-omni-video": {
     submitPath: "/kling/v1/videos/omni-video",
@@ -188,6 +195,14 @@ function hasPlainImagePayload(meta: Record<string, unknown>): boolean {
   return typeof meta.image === "string" && meta.image.trim().length > 0;
 }
 
+function hasImageTailPayload(meta: Record<string, unknown>): boolean {
+  return typeof meta.image_tail === "string" && meta.image_tail.trim().length > 0;
+}
+
+function hasKlingImageInput(images: ResolvedImage[], meta: Record<string, unknown>): boolean {
+  return images.length > 0 || hasPlainImagePayload(meta) || hasImageTailPayload(meta);
+}
+
 function hasMultiImagePayload(meta: Record<string, unknown>): boolean {
   return Array.isArray(meta.image_list) && meta.image_list.length > 0;
 }
@@ -220,9 +235,29 @@ function resolveKlingModel(input: GenerationAdapterInput) {
   return model;
 }
 
+function resolveKlingRoute(
+  input: GenerationAdapterInput,
+  images: ResolvedImage[],
+  meta: Record<string, unknown>,
+): KlingModelConfig {
+  const model = { ...resolveKlingModel(input) };
+  if (model.imageMode !== "auto") return model;
+  if (hasOfficialOmniMedia(meta)) {
+    throw new GenerationValidationError("kling-v3 only supports text-to-video and image-to-video");
+  }
+  if (hasKlingImageInput(images, meta)) {
+    model.submitPath = KLING_IMAGE_TO_VIDEO_PATH;
+    model.imageMode = "single";
+    return model;
+  }
+  model.submitPath = KLING_TEXT_TO_VIDEO_PATH;
+  model.imageMode = "none";
+  return model;
+}
+
 function buildPayload(
   input: GenerationAdapterInput,
-  model: (typeof KLING_MODELS)[string],
+  model: KlingModelConfig,
   prompt: string,
   images: ResolvedImage[],
 ): Record<string, unknown> {
@@ -336,10 +371,10 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
 }
 
 export async function klingVideoGenerationsAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
-  const model = resolveKlingModel(input);
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   const images = await resolveImages(input);
   const meta = providerMeta(input.meta);
+  const model = resolveKlingRoute(input, images, meta);
 
   if (!prompt && !model.allowPromptlessOmni) throw new GenerationValidationError("Prompt text is required");
   if (!prompt && model.allowPromptlessOmni && !hasPromptlessOmniPayload(meta, images)) {
