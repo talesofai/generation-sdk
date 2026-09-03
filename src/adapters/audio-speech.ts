@@ -11,6 +11,9 @@ const REQUEST_TIMEOUT_MS = 210_000;
 const QWEN_MODELS = new Set(["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
 const QWEN_AUDIO_3_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
 const HIGGS_MODEL = "higgs-tts";
+const INDEX_TTS_MODEL = "index-tts-2.5";
+const BREEZE_MODEL = "breeze-tts-2";
+const INDEX_TTS_EMO_VECTOR_LEN = 8;
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 type AudioBlock = Extract<GenerationContentBlock, { type: "audio" }>;
@@ -122,6 +125,107 @@ function validateHiggs(input: ResolvedGenerationRequest, text: TextBlock, audio:
   }
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function validateIndexTts(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {
+  // IndexTTS-2.5 is voice-cloning only -- unlike Qwen there is no from-text-only
+  // design mode, so exactly one reference audio is always required.
+  if (audio.length !== 1) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} requires exactly one reference audio (voice cloning; there is no from-text-only mode)`,
+    );
+  }
+  const requestMetaKeys = new Set([
+    "lang",
+    "emo_audio_url",
+    "emo_alpha",
+    "emo_vector",
+    "use_emo_text",
+    "emo_text",
+    "duration_factor",
+  ]);
+  validateMetaKeys("request.metadata", input.request.metadata, requestMetaKeys);
+  validateMetaKeys("request.meta", input.request.meta, requestMetaKeys);
+  validateMetaKeys("text content meta", text.meta, new Set());
+  validateMetaKeys("audio content meta", audio[0]?.meta, new Set());
+
+  const { lang, emo_audio_url, emo_alpha, emo_vector, use_emo_text, emo_text, duration_factor } = input.meta;
+
+  if (lang !== undefined && (typeof lang !== "string" || !lang.trim())) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.lang must be a non-empty string`);
+  }
+  if (emo_audio_url !== undefined) validateHttpUrl(emo_audio_url, "meta.emo_audio_url");
+  if (emo_alpha !== undefined) {
+    if (emo_audio_url === undefined) {
+      throw new GenerationValidationError(`${input.declaration.model} meta.emo_alpha requires meta.emo_audio_url`);
+    }
+    if (!isFiniteNumber(emo_alpha) || emo_alpha < 0 || emo_alpha > 1) {
+      throw new GenerationValidationError(`${input.declaration.model} meta.emo_alpha must be a number in [0, 1]`);
+    }
+  }
+  if (emo_vector !== undefined) {
+    if (
+      !Array.isArray(emo_vector) ||
+      emo_vector.length !== INDEX_TTS_EMO_VECTOR_LEN ||
+      !emo_vector.every(isFiniteNumber)
+    ) {
+      throw new GenerationValidationError(
+        `${input.declaration.model} meta.emo_vector must be an array of exactly ${INDEX_TTS_EMO_VECTOR_LEN} finite numbers`,
+      );
+    }
+  }
+  if (use_emo_text !== undefined && typeof use_emo_text !== "boolean") {
+    throw new GenerationValidationError(`${input.declaration.model} meta.use_emo_text must be a boolean`);
+  }
+  if (emo_text !== undefined && (typeof emo_text !== "string" || !emo_text.trim())) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.emo_text must be a non-empty string`);
+  }
+  if (duration_factor !== undefined) {
+    if (!isFiniteNumber(duration_factor) || duration_factor < 0.5 || duration_factor > 2.0) {
+      throw new GenerationValidationError(`${input.declaration.model} meta.duration_factor must be a number in [0.5, 2.0]`);
+    }
+  }
+}
+
+function validateBreeze(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {
+  if (audio.length > 1) {
+    throw new GenerationValidationError(`${input.declaration.model} supports at most one reference audio`);
+  }
+  const requestMetaKeys = new Set(["instruction", "ref_text", "cfg_scale", "seed"]);
+  validateMetaKeys("request.metadata", input.request.metadata, requestMetaKeys);
+  validateMetaKeys("request.meta", input.request.meta, requestMetaKeys);
+  validateMetaKeys("text content meta", text.meta, new Set());
+  for (const block of audio) validateMetaKeys("audio content meta", block.meta, new Set());
+
+  const { instruction, ref_text, cfg_scale, seed } = input.meta;
+  const hasInstruction = typeof instruction === "string" && instruction.trim().length > 0;
+  if (instruction !== undefined && !hasInstruction) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.instruction must be a non-empty string`);
+  }
+  const hasRefText = typeof ref_text === "string" && ref_text.trim().length > 0;
+  if (ref_text !== undefined && !hasRefText) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.ref_text must be a non-empty string`);
+  }
+  if (audio.length === 1 && !hasRefText) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} requires meta.ref_text (the reference audio's exact transcript) whenever reference audio is provided -- there is no server-side ASR fallback`,
+    );
+  }
+  if (audio.length === 0 && !hasInstruction) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} requires meta.instruction (voice design) and/or a reference audio + meta.ref_text (voice clone / voice direction)`,
+    );
+  }
+  if (cfg_scale !== undefined && (!isFiniteNumber(cfg_scale) || cfg_scale <= 0)) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.cfg_scale must be a positive finite number`);
+  }
+  if (seed !== undefined && (!Number.isInteger(seed))) {
+    throw new GenerationValidationError(`${input.declaration.model} meta.seed must be an integer`);
+  }
+}
+
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
   if (QWEN_MODELS.has(input.declaration.model)) {
@@ -130,6 +234,14 @@ function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   }
   if (input.declaration.model === HIGGS_MODEL) {
     validateHiggs(input, text, audio);
+    return;
+  }
+  if (input.declaration.model === INDEX_TTS_MODEL) {
+    validateIndexTts(input, text, audio);
+    return;
+  }
+  if (input.declaration.model === BREEZE_MODEL) {
+    validateBreeze(input, text, audio);
     return;
   }
   throw new GenerationValidationError(`Unsupported audio speech model: ${input.declaration.model}`);
@@ -151,6 +263,39 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
   if (QWEN_MODELS.has(input.declaration.model)) {
     if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
     else payload.metadata = { voice_prompt: input.meta.voice_prompt };
+    return payload;
+  }
+
+  if (input.declaration.model === INDEX_TTS_MODEL) {
+    const refAudio = audio[0];
+    if (refAudio?.source.type === "url") payload.ref_audio = refAudio.source.url.trim();
+    const { lang, emo_audio_url, emo_alpha, emo_vector, use_emo_text, emo_text, duration_factor } = input.meta;
+    const meta: Record<string, unknown> = {};
+    if (lang !== undefined) meta.lang = lang;
+    if (emo_audio_url !== undefined) {
+      meta.emo_audio_url = emo_audio_url;
+      if (emo_alpha !== undefined) meta.emo_alpha = emo_alpha;
+    }
+    if (emo_vector !== undefined) meta.emo_vector = emo_vector;
+    if (use_emo_text !== undefined) meta.use_emo_text = use_emo_text;
+    if (emo_text !== undefined) meta.emo_text = emo_text;
+    if (duration_factor !== undefined) meta.duration_factor = duration_factor;
+    if (Object.keys(meta).length > 0) payload.metadata = meta;
+    return payload;
+  }
+
+  if (input.declaration.model === BREEZE_MODEL) {
+    const refAudio = audio[0];
+    const { instruction, ref_text, cfg_scale, seed } = input.meta;
+    const meta: Record<string, unknown> = {};
+    if (refAudio?.source.type === "url") {
+      payload.ref_audio = refAudio.source.url.trim();
+      meta.ref_text = ref_text;
+    }
+    if (instruction !== undefined) meta.instruction = instruction;
+    if (cfg_scale !== undefined) meta.cfg_scale = cfg_scale;
+    if (seed !== undefined) meta.seed = seed;
+    if (Object.keys(meta).length > 0) payload.metadata = meta;
     return payload;
   }
 

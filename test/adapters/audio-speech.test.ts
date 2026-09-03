@@ -173,6 +173,82 @@ describe("openai.audioSpeech adapter requests", () => {
       },
     ]);
   });
+
+  it("maps IndexTTS-2.5 reference audio and emotion/speed metadata", async () => {
+    const { client, calls } = recordingClient();
+
+    await client.generate({
+      model: "index-tts-2.5",
+      content: [{ type: "text", text: "克隆音色朗读" }, audio()],
+    });
+    await client.generate({
+      model: "index-tts-2.5",
+      content: [{ type: "text", text: "带情感与语速控制" }, audio()],
+      meta: {
+        lang: "ZH",
+        emo_audio_url: SECOND_REFERENCE_URL,
+        emo_alpha: 0.5,
+        emo_vector: [0, 0, 0.8, 0, 0, 0, 0, 0.2],
+        use_emo_text: true,
+        emo_text: "悲伤",
+        duration_factor: 1.2,
+      },
+    });
+
+    expect(calls.map((call) => requestBody(call))).toEqual([
+      { model: "index-tts-2.5", input: "克隆音色朗读", ref_audio: REFERENCE_URL },
+      {
+        model: "index-tts-2.5",
+        input: "带情感与语速控制",
+        ref_audio: REFERENCE_URL,
+        metadata: {
+          lang: "ZH",
+          emo_audio_url: SECOND_REFERENCE_URL,
+          emo_alpha: 0.5,
+          emo_vector: [0, 0, 0.8, 0, 0, 0, 0, 0.2],
+          use_emo_text: true,
+          emo_text: "悲伤",
+          duration_factor: 1.2,
+        },
+      },
+    ]);
+  });
+
+  it("maps all Breeze-TTS-2 modes", async () => {
+    const { client, calls } = recordingClient();
+
+    await client.generate({
+      model: "breeze-tts-2",
+      content: [{ type: "text", text: "语音设计" }],
+      meta: { instruction: "温暖沉稳的女声" },
+    });
+    await client.generate({
+      model: "breeze-tts-2",
+      content: [{ type: "text", text: "音色克隆" }, audio()],
+      meta: { ref_text: "参考音频的准确文字稿" },
+    });
+    await client.generate({
+      model: "breeze-tts-2",
+      content: [{ type: "text", text: "音色定向" }, audio()],
+      meta: { ref_text: "参考音频的准确文字稿", instruction: "说快一点", cfg_scale: 4, seed: 42 },
+    });
+
+    expect(calls.map((call) => requestBody(call))).toEqual([
+      { model: "breeze-tts-2", input: "语音设计", metadata: { instruction: "温暖沉稳的女声" } },
+      {
+        model: "breeze-tts-2",
+        input: "音色克隆",
+        ref_audio: REFERENCE_URL,
+        metadata: { ref_text: "参考音频的准确文字稿" },
+      },
+      {
+        model: "breeze-tts-2",
+        input: "音色定向",
+        ref_audio: REFERENCE_URL,
+        metadata: { ref_text: "参考音频的准确文字稿", instruction: "说快一点", cfg_scale: 4, seed: 42 },
+      },
+    ]);
+  });
 });
 
 describe("openai.audioSpeech adapter validation", () => {
@@ -267,6 +343,95 @@ describe("openai.audioSpeech adapter validation", () => {
         ],
       }),
     ).toThrow("supports at most 16 references");
+  });
+
+  it.each<{ name: string; request: GenerateRequest; message: string }>([
+    {
+      name: "no reference audio",
+      request: { model: "index-tts-2.5", content: [{ type: "text", text: "文本" }] },
+      message: "Missing required audio content block",
+    },
+    {
+      name: "two reference audios",
+      request: {
+        model: "index-tts-2.5",
+        content: [{ type: "text", text: "文本" }, audio(), audio(SECOND_REFERENCE_URL)],
+      },
+      message: "Expected at most 1 audio content block",
+    },
+    {
+      name: "emo_alpha without emo_audio_url",
+      request: {
+        model: "index-tts-2.5",
+        content: [{ type: "text", text: "文本" }, audio()],
+        meta: { emo_alpha: 0.5 },
+      },
+      message: "meta.emo_alpha requires meta.emo_audio_url",
+    },
+    {
+      name: "emo_vector wrong length",
+      request: {
+        model: "index-tts-2.5",
+        content: [{ type: "text", text: "文本" }, audio()],
+        meta: { emo_vector: [0, 1, 2] },
+      },
+      message: "exactly 8 finite numbers",
+    },
+    {
+      name: "duration_factor out of range",
+      request: {
+        model: "index-tts-2.5",
+        content: [{ type: "text", text: "文本" }, audio()],
+        meta: { duration_factor: 3 },
+      },
+      message: "must be a number in [0.5, 2.0]",
+    },
+  ])("rejects IndexTTS-2.5 $name", ({ request, message }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate(request)).toThrow(message);
+  });
+
+  it.each<{ name: string; request: GenerateRequest; message: string }>([
+    {
+      name: "neither instruction nor reference audio",
+      request: { model: "breeze-tts-2", content: [{ type: "text", text: "文本" }] },
+      message: "requires meta.instruction",
+    },
+    {
+      name: "reference audio without ref_text",
+      request: { model: "breeze-tts-2", content: [{ type: "text", text: "文本" }, audio()] },
+      message: "requires meta.ref_text",
+    },
+    {
+      name: "two reference audios",
+      request: {
+        model: "breeze-tts-2",
+        content: [{ type: "text", text: "文本" }, audio(), audio(SECOND_REFERENCE_URL)],
+        meta: { ref_text: "文字稿" },
+      },
+      message: "Expected at most 1 audio content block",
+    },
+    {
+      name: "non-positive cfg_scale",
+      request: {
+        model: "breeze-tts-2",
+        content: [{ type: "text", text: "文本" }],
+        meta: { instruction: "指令", cfg_scale: 0 },
+      },
+      message: "must be a positive finite number",
+    },
+    {
+      name: "non-integer seed",
+      request: {
+        model: "breeze-tts-2",
+        content: [{ type: "text", text: "文本" }],
+        meta: { instruction: "指令", seed: 1.5 },
+      },
+      message: "must be an integer",
+    },
+  ])("rejects Breeze-TTS-2 $name", ({ request, message }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate(request)).toThrow(message);
   });
 
   it.each([

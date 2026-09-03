@@ -737,6 +737,181 @@ const audioSpeechModels = [
       },
     ],
   },
+  {
+    schema: MODEL_SCHEMA,
+    model: "index-tts-2.5",
+    title: "IndexTTS-2.5",
+    description:
+      "Voice-cloning only: exactly one reference audio always required, no from-text-only design mode. Optional: separate emotion reference audio, explicit emotion vector (meta.emo_vector: array of exactly 8 finite numbers [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm], not declared as a typed meta field since this schema has no array meta-field type), auto-emotion-from-text, speed control (0.5-2.0), language. Dependency: clone prior generated audio.",
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "Exactly one non-empty text block to speak.",
+        },
+        {
+          type: "audio",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description:
+            "Required: single reference audio used for voice cloning (there is no design-only mode). Dependency: use prior generated audio.",
+        },
+      ],
+    },
+    meta: {
+      fields: {
+        lang: {
+          type: "string",
+          optional: true,
+          description: "Language code: ZH, EN, JA, ES, or AR. Default: ZH.",
+        },
+        emo_audio_url: {
+          type: "string",
+          optional: true,
+          description:
+            "Separate reference audio URL used only for emotion (distinct from the voice-identity reference in content).",
+        },
+        emo_alpha: {
+          type: "number",
+          optional: true,
+          description: "Emotion intensity in [0, 1]. Requires emo_audio_url.",
+        },
+        use_emo_text: {
+          type: "boolean",
+          optional: true,
+          description: "Derive emotion automatically from emo_text (or the spoken text itself if emo_text is omitted).",
+        },
+        emo_text: {
+          type: "string",
+          optional: true,
+          description:
+            "Text used only for emotion derivation when use_emo_text is true; does not affect the spoken content.",
+        },
+        duration_factor: {
+          type: "number",
+          optional: true,
+          description: "Speed control in [0.5, 2.0]. >1.0 slows down, <1.0 speeds up. Default: 1.0.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Reference-audio voice clone",
+        request: {
+          model: "index-tts-2.5",
+          content: [
+            { type: "text", text: "使用参考音频克隆音色朗读这段文本。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+      {
+        title: "Voice clone with explicit emotion vector and slower speech",
+        request: {
+          model: "index-tts-2.5",
+          content: [
+            { type: "text", text: "这是一段带情感控制和语速调整的测试文本。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+          meta: {
+            lang: "ZH",
+            emo_vector: [0, 0, 0.8, 0, 0, 0, 0, 0.2],
+            duration_factor: 1.2,
+          },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "breeze-tts-2",
+    title: "Breeze TTS 2",
+    description:
+      "Modes: meta.instruction only = voice design; one reference audio + meta.ref_text = voice clone; both = voice direction. ref_text must be the reference audio's exact transcript (no server-side ASR). Bilingual EN/ZH, supports inline vocal events like (laugh)/[叹气] in the spoken text. Weights are research/non-commercial-licensed; self-hosting for commercial traffic is a known, accepted risk. Conflict: ask user; never combine/reinterpret modes. Dependency: clone prior generated audio.",
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "Exactly one non-empty text block to speak.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 1,
+          sources: ["url"],
+          description: "Clone/direction: one reference audio URL, requires meta.ref_text. Design: omit. Dependency: use prior generated audio.",
+        },
+      ],
+    },
+    meta: {
+      fields: {
+        instruction: {
+          type: "string",
+          optional: true,
+          description:
+            "Design/direction: natural-language voice description or direction, e.g. a warm calm female voice / speak faster with rising excitement. Required if no reference audio is provided.",
+        },
+        ref_text: {
+          type: "string",
+          optional: true,
+          description:
+            "The reference audio's EXACT transcript. Required whenever reference audio is provided; there is no server-side ASR fallback.",
+        },
+        cfg_scale: {
+          type: "number",
+          optional: true,
+          description: "Instruction-following strength. Positive number.",
+        },
+        seed: {
+          type: "integer",
+          optional: true,
+          description: "Generation seed.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Voice design",
+        request: {
+          model: "breeze-tts-2",
+          content: [{ type: "text", text: "(sigh) It is good to hear your voice again after all this time." }],
+          meta: { instruction: "a warm, calm female voice speaking softly" },
+        },
+      },
+      {
+        title: "Voice clone",
+        request: {
+          model: "breeze-tts-2",
+          content: [
+            { type: "text", text: "这是一次清晰自然的语音合成测试。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+          meta: { ref_text: "这是参考音频的准确文字稿。" },
+        },
+      },
+      {
+        title: "Voice direction",
+        request: {
+          model: "breeze-tts-2",
+          content: [
+            { type: "text", text: "这是一次清晰自然的语音合成测试。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+          meta: { ref_text: "这是参考音频的准确文字稿。", instruction: "说快一点，带着上扬的兴奋感" },
+        },
+      },
+    ],
+  },
 ] satisfies GenerationModelDeclaration[];
 
 const builtinModels = [
