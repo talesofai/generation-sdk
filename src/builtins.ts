@@ -816,7 +816,7 @@ const audioSpeechModels = [
     model: "breeze-tts-2",
     title: "Breeze TTS 2",
     description:
-      "Modes: meta.instruction voice design; one-reference clone; one-reference clone plus meta.instruction delivery; built-in default voice. Default: the upstream default voice, which cannot be specified and is not guaranteed to stay the same across versions. Instruction: designs the voice without reference audio, directs delivery with reference audio. Transcript: meta.ref_text is optional and only valid with reference audio; an omitted transcript is filled in by automatic transcription. Text: one request must render under about 90 seconds of speech, roughly 250 Chinese characters, and 1000 characters is a hard ceiling in any language; split longer text across requests. Dependency: clone prior generated audio.",
+      "Modes: meta.instruction voice design; one-reference clone; one-reference clone plus meta.instruction delivery; built-in default voice. Default: the upstream default voice, which cannot be specified and is not guaranteed to stay the same across versions. Instruction: designs the voice without reference audio, directs delivery with reference audio. Transcript: meta.ref_text is optional and only valid with reference audio; an omitted transcript is filled in by automatic transcription. Text: one request must render under about 90 seconds of speech, roughly 250 Chinese characters, and 1000 Unicode code points is a hard ceiling in any language; split longer text across requests. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
