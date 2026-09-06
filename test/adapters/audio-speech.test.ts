@@ -549,6 +549,24 @@ describe("openai.audioSpeech adapter validation", () => {
     expect(() => client.validate(request)).not.toThrow();
   });
 
+  it.each([
+    { label: "ascii", text: "a".repeat(1001) },
+    { label: "astral", text: "😀".repeat(1001) },
+  ])("rejects Breeze $label input above 1000 Unicode code points", ({ text }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate({ model: "breeze-tts-2", content: [{ type: "text", text }, audio()] })).toThrow(
+      "breeze-tts-2 accepts input of at most 1000 Unicode code points",
+    );
+  });
+
+  it.each([
+    { label: "ascii", text: "a".repeat(1000) },
+    { label: "astral", text: ` ${"😀".repeat(1000)} ` },
+  ])("accepts the Breeze $label input boundary", ({ text }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate({ model: "breeze-tts-2", content: [{ type: "text", text }, audio()] })).not.toThrow();
+  });
+
   it("rejects a Breeze transcript without reference audio", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>

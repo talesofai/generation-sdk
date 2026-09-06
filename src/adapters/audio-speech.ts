@@ -148,6 +148,10 @@ function validateBreeze(input: ResolvedGenerationRequest, text: TextBlock, audio
   if (refText !== undefined && audio.length === 0) {
     throw new GenerationValidationError(`${input.declaration.model} meta.ref_text requires one reference audio`);
   }
+
+  if (Array.from(text.text.trim()).length > 1000) {
+    throw new GenerationValidationError(`${input.declaration.model} accepts input of at most 1000 Unicode code points`);
+  }
 }
 
 function validateIndexTts(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {

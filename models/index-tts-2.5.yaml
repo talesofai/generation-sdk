@@ -4,8 +4,8 @@ title: IndexTTS 2.5
 description: "Modes: one-reference clone with the emotion of the reference audio; clone with the emotion of
   meta.emotion_audio; clone with the emotion of meta.emotion_text. Reference: exactly one reference audio is required.
   Emotion: meta.emotion_audio and meta.emotion_text are mutually exclusive; ask the user which one to keep, never
-  combine them. Rate: meta.duration_factor 0.5-2.0, above 1.0 is slower. Language: meta.language is required. Text: any
-  length. Dependency: clone prior generated audio."
+  combine them. Rate: meta.duration_factor 0.5-2.0, above 1.0 is slower. Language: meta.language is required. Text:
+  long-text behaviour has not been measured. Dependency: clone prior generated audio."
 adapter:
   type: openai.audioSpeech
 content:
