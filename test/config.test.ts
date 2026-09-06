@@ -231,7 +231,12 @@ describe("config", () => {
     expect(breeze?.description).toContain(
       "Default: the upstream default voice, which cannot be specified and is not guaranteed to stay the same across versions",
     );
-    expect(breeze?.description).toContain("Text: any length");
+    // The actor hard-fails a request whose rendered audio reaches its ~90s
+    // generation ceiling, so "any length" would send agents into a request that
+    // burns a full GPU run before failing. The declaration is the source of
+    // truth agents read; it has to carry the real limit.
+    expect(breeze?.description).toContain("must render under about 90 seconds of speech");
+    expect(breeze?.description).not.toContain("Text: any length");
     expect(breeze?.content.input.find((input) => input.type === "audio")?.max).toBe(1);
     expect(breeze?.content.input.find((input) => input.type === "audio")?.sources).toEqual(["url"]);
     expect(breeze?.meta?.fields?.instruction?.description).toContain(
@@ -255,10 +260,12 @@ describe("config", () => {
     expect(indexTts?.description).toContain("Text: any length");
     expect(indexTts?.content.input.find((input) => input.type === "audio")).toMatchObject({
       required: true,
-      min: 1,
       max: 1,
       sources: ["url"],
     });
+    // `required: true` is what rejects zero audio blocks; a redundant `min`
+    // would be a gratuitous difference from the qwen and higgs audio specs.
+    expect(indexTts?.content.input.find((input) => input.type === "audio")).not.toHaveProperty("min");
     expect(indexTts?.meta?.fields?.duration_factor).toMatchObject({ type: "number", min: 0.5, max: 2 });
     expect(indexTts?.meta?.fields?.duration_factor).not.toHaveProperty("default");
     expect(indexTts?.meta?.fields?.language).toMatchObject({
