@@ -257,7 +257,7 @@ describe("config", () => {
       "Emotion: meta.emotion_audio and meta.emotion_text are mutually exclusive",
     );
     expect(indexTts?.description).toContain("Reference: exactly one reference audio is required");
-    expect(indexTts?.description).toContain("Text: any length");
+    expect(indexTts?.description).toContain("Text: long-text behaviour has not been measured");
     expect(indexTts?.content.input.find((input) => input.type === "audio")).toMatchObject({
       required: true,
       max: 1,

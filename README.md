@@ -279,7 +279,7 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 - Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
 - Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
-- Breeze: `instruction` design without reference audio, one-reference clone, both together for a described delivery of a cloned voice, or neither for the upstream default voice; optional `ref_text` transcript requires reference audio and is produced automatically when omitted; one request must render under about 90 seconds of speech, roughly 250 Chinese characters, so split longer text.
+- Breeze: `instruction` design without reference audio, one-reference clone, both together for a described delivery of a cloned voice, or neither for the upstream default voice; optional `ref_text` transcript requires reference audio and is produced automatically when omitted; one request must render under about 90 seconds of speech, roughly 250 Chinese characters, and 1000 characters is a hard ceiling in any language, so split longer text.
 - IndexTTS: one-reference clone whose emotion comes from the reference audio, from `emotion_audio`, or from `emotion_text`; `duration_factor` 0.5-2.0 sets the speaking rate and `language` is required.
 - Design: `voice_prompt` design is Qwen-only and cannot be combined with reference audio; `instruction` design is Breeze-only and the same field directs delivery once reference audio is present.
 - Emotion: emotion decoupled from the cloned voice is `index-tts-2.5` only.
