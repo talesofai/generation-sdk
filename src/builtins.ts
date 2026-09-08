@@ -129,7 +129,7 @@ function seedanceVideoParameters(defaults: { resolution: string; resolutions?: s
     poll_interval: {
       type: "integer",
       optional: true,
-      default: 2,
+      default: 1,
       min: 1,
       max: 30,
       description: "Seconds between task status checks.",
@@ -199,7 +199,7 @@ const minimaxH3VideoCommonParameters = {
   poll_interval: {
     type: "integer",
     optional: true,
-    default: 2,
+    default: 1,
     min: 1,
     max: 30,
     description: "Seconds between task status checks.",

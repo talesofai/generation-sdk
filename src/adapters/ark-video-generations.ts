@@ -1,12 +1,13 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
+import { taskPollTicks } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
 // Keep per-request timeout comfortably above max_wait so polling controls total wait time.
 const REQUEST_TIMEOUT_MS = 1_860_000;
-const DEFAULT_POLL_INTERVAL_SEC = 2;
+const DEFAULT_POLL_INTERVAL_SEC = 1;
 const DEFAULT_MAX_WAIT_SEC = 600;
 
 type ArkCreateTaskResponse = { id?: unknown; task_id?: unknown; status?: unknown };
@@ -36,10 +37,6 @@ type MediaMode = "image" | "frame" | "reference";
 type MediaKind = "image" | "video";
 type InputMedia = { kind: MediaKind; source: GenerationSource; role: string | undefined };
 type ResolvedMedia = { kind: MediaKind; url: string; role: string | undefined };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
@@ -267,10 +264,8 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
     body: JSON.stringify(payload),
   })) as ArkCreateTaskResponse;
   const taskId = extractTaskId(task);
-  const startedAt = Date.now();
 
-  while (Date.now() - startedAt <= maxWaitSec * 1000) {
-    await sleep(pollIntervalSec * 1000);
+  for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
     const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
       method: "GET",
     })) as ArkTaskStatusResponse;
