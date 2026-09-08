@@ -1,5 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
+import { taskPollTicks } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -105,10 +106,6 @@ type OmniImageReference = {
 type MultiImageReference = {
   image: string;
 };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -359,10 +356,8 @@ export async function klingVideoGenerationsAdapter(input: GenerationAdapterInput
   const taskId = extractTaskId(task);
   const pollIntervalSec = asInteger(input.parameters.poll_interval, DEFAULT_POLL_INTERVAL_SEC);
   const maxWaitSec = asInteger(input.parameters.max_wait, DEFAULT_MAX_WAIT_SEC);
-  const startedAt = Date.now();
 
-  while (Date.now() - startedAt <= maxWaitSec * 1000) {
-    await sleep(pollIntervalSec * 1000);
+  for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
     const rawStatus = (await requestJson(input, `${model.submitPath}/${encodeURIComponent(taskId)}`, {
       method: "GET",
     })) as TaskStatusResponse;

@@ -62,7 +62,7 @@ parameters:
   poll_interval:
     type: integer
     optional: true
-    default: 2
+    default: 1
     min: 1
     max: 30
     description: Seconds between task status checks.

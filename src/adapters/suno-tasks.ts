@@ -1,5 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
+import { taskPollTicks } from "../task-poll.js";
 import type {
   GenerationAdapterInput,
   GenerationContentBlock,
@@ -51,10 +52,6 @@ type SunoTaskDto = {
   finish_time?: unknown;
   data?: unknown;
 };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -412,9 +409,7 @@ async function pollSunoTask(
   pollIntervalSec: number,
   maxWaitSec: number,
 ): Promise<GenerationContentBlock[]> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt <= maxWaitSec * 1000) {
-    await sleep(pollIntervalSec * 1000);
+  for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
     let raw: TaskResponse;
     try {
       raw = await requestJson(input, `/suno/fetch/${encodeURIComponent(taskId)}`, { method: "GET" });

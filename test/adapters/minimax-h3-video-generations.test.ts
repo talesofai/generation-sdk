@@ -48,7 +48,7 @@ const h3Declaration = {
       enum: ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
     },
     aigc_watermark: { type: "boolean", optional: true, default: false },
-    poll_interval: { type: "integer", optional: true, default: 2, min: 1, max: 30 },
+    poll_interval: { type: "integer", optional: true, default: 1, min: 1, max: 30 },
     max_wait: { type: "integer", optional: true, default: 600, min: 30, max: 1800 },
   },
 } satisfies GenerationModelDeclaration;

@@ -1,17 +1,14 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
+import { taskPollTicks } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactObject } from "../utils.js";
 
 const REQUEST_TIMEOUT_MS = 1_860_000;
-const DEFAULT_POLL_INTERVAL_SEC = 2;
+const DEFAULT_POLL_INTERVAL_SEC = 1;
 const DEFAULT_MAX_WAIT_SEC = 600;
 
 type TaskResponse = Record<string, unknown>;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -143,10 +140,8 @@ export async function videoUpscaleNativeAdapter(input: GenerationAdapterInput): 
     body: JSON.stringify({ model: input.declaration.model, video_url: videoUrl }),
   })) as TaskResponse;
   const taskId = extractTaskId(task);
-  const startedAt = Date.now();
 
-  while (Date.now() - startedAt <= maxWaitSec * 1000) {
-    await sleep(pollIntervalSec * 1000);
+  for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
     const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
       method: "GET",
     })) as TaskResponse;
