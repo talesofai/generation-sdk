@@ -8,6 +8,7 @@ import {
   parseGenerationModelDeclaration,
   readGenerationModelDeclarationsFromDirectory,
   stringifyBuiltinModelConfig,
+  stringifyGenerationModelDeclaration,
 } from "../src/index.js";
 
 describe("config", () => {
@@ -122,6 +123,61 @@ describe("config", () => {
     expect(
       parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "audio" }), "gpt-image-2.json").category,
     ).toBe("audio");
+  });
+
+  it("roundtrips optional pricing and accepts declarations that omit it", () => {
+    const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
+    const parsed = JSON.parse(valid) as Record<string, unknown>;
+
+    expect(parseGenerationModelDeclaration(valid, "gpt-image-2.json").pricing).toBeUndefined();
+
+    const fixed = parseGenerationModelDeclaration(
+      JSON.stringify({ ...parsed, pricing: { unit: "image", amount: 0.007 } }),
+      "gpt-image-2.json",
+    );
+    expect(fixed.pricing).toEqual({ unit: "image", amount: 0.007 });
+    expect(
+      parseGenerationModelDeclaration(stringifyGenerationModelDeclaration(fixed), "gpt-image-2.yaml").pricing,
+    ).toEqual({ unit: "image", amount: 0.007 });
+
+    const ranged = parseGenerationModelDeclaration(
+      JSON.stringify({ ...parsed, pricing: { unit: "second", min: 0.126, max: 0.168, note: "std\u2013pro" } }),
+      "gpt-image-2.json",
+    );
+    expect(ranged.pricing).toEqual({ unit: "second", min: 0.126, max: 0.168, note: "std\u2013pro" });
+
+    expect(
+      parseGenerationModelDeclaration(
+        JSON.stringify({ ...parsed, pricing: { unit: "1m_tokens", amount: 140 } }),
+        "gpt-image-2.json",
+      ).pricing,
+    ).toEqual({ unit: "1m_tokens", amount: 140 });
+  });
+
+  it("rejects model declarations with invalid pricing", () => {
+    const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
+    const parsed = JSON.parse(valid) as Record<string, unknown>;
+
+    const invalid = [
+      null,
+      "image",
+      [],
+      { unit: "token", amount: 1 },
+      { unit: "image" },
+      { unit: "image", amount: 1, min: 1, max: 2 },
+      { unit: "image", amount: -1 },
+      { unit: "image", min: 2, max: 1 },
+      { unit: "image", min: 1 },
+      { unit: "image", max: 1 },
+      { unit: "image", min: Number.NaN, max: 1 },
+      { unit: "image", amount: 1, note: 5 },
+    ];
+
+    for (const pricing of invalid) {
+      expect(() => parseGenerationModelDeclaration(JSON.stringify({ ...parsed, pricing }), "gpt-image-2.json")).toThrow(
+        "Invalid model declaration: gpt-image-2.json",
+      );
+    }
   });
 
   it("roundtrips built-in model meta declarations", () => {

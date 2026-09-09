@@ -4,8 +4,10 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { GenerationConfigError } from "./errors.js";
 import {
   GENERATION_MODEL_CATEGORIES,
+  GENERATION_PRICING_UNITS,
   type GenerationModelCategory,
   type GenerationModelDeclaration,
+  type GenerationModelPricing,
   MODEL_SCHEMA,
 } from "./types.js";
 import { cloneJson, slugifyFileName } from "./utils.js";
@@ -56,6 +58,23 @@ function isGenerationModelCategory(value: unknown): value is GenerationModelCate
   return typeof value === "string" && (GENERATION_MODEL_CATEGORIES as readonly string[]).includes(value);
 }
 
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isGenerationModelPricing(value: unknown): value is GenerationModelPricing {
+  if (!isRecord(value)) return false;
+  if (typeof value.unit !== "string" || !(GENERATION_PRICING_UNITS as readonly string[]).includes(value.unit))
+    return false;
+  if (value.note !== undefined && typeof value.note !== "string") return false;
+
+  if (value.amount !== undefined) {
+    if (value.min !== undefined || value.max !== undefined) return false;
+    return isFiniteNonNegative(value.amount);
+  }
+  return isFiniteNonNegative(value.min) && isFiniteNonNegative(value.max) && value.min <= value.max;
+}
+
 function isMetaSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
@@ -80,6 +99,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     typeof value.model === "string" &&
     value.model.trim().length > 0 &&
     (value.category === undefined || isGenerationModelCategory(value.category)) &&
+    (value.pricing === undefined || isGenerationModelPricing(value.pricing)) &&
     (value.hidden === undefined || typeof value.hidden === "boolean") &&
     (value.allowUnknownParameters === undefined || typeof value.allowUnknownParameters === "boolean") &&
     isRecord(adapter) &&

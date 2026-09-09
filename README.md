@@ -440,6 +440,10 @@ schema: neta.generation.model.v1
 model: gpt-image-2
 title: GPT Image 2
 category: image
+pricing:
+  unit: image
+  min: 0.04
+  max: 0.73
 adapter:
   type: openai.images
 content:
@@ -461,6 +465,12 @@ parameters:
     optional: true
     default: 1024x1024
 ```
+
+A declaration may carry a display-only `pricing` block in USD. `unit` names what one charge covers
+(`image`, `second`, `request`, or `1m_tokens`); `amount` is the exact unit price, or a `min`/`max`
+pair when the price depends on request parameters (resolution, duration, quality). The SDK does not
+price or bill anything: pricing is declaration metadata for catalog surfaces, and actual charges
+always come from the provider.
 
 Set `hidden: true` on a declaration to hide the model from default discovery surfaces while keeping exact-ID lookup
 and generation available. This is a discovery hint, not an authorization or runtime availability control.
