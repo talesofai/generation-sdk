@@ -441,10 +441,9 @@ model: gpt-image-2
 title: GPT Image 2
 category: image
 pricing:
-  unit: second
-  min: 0.07
-  max: 0.38
-  note: 480p-1080p
+  unit: image
+  min: 0.04
+  max: 0.73
 adapter:
   type: openai.images
 content:

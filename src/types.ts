@@ -17,7 +17,7 @@ export type GenerationModelPricing = {
   unit: GenerationPricingUnit;
   /** Short qualifier shown with the price, e.g. "std-pro". */
   note?: string;
-} & ({ amount: number } | { min: number; max: number });
+} & ({ amount: number; min?: never; max?: never } | { amount?: never; min: number; max: number });
 
 export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
 
