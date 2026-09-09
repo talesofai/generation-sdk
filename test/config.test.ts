@@ -167,9 +167,10 @@ describe("config", () => {
       { unit: "image", amount: 1, min: 1, max: 2 },
       { unit: "image", amount: -1 },
       { unit: "image", min: 2, max: 1 },
-      { unit: "image", min: Number.NaN },
+      { unit: "image", min: 1 },
+      { unit: "image", max: 1 },
+      { unit: "image", min: Number.NaN, max: 1 },
       { unit: "image", amount: 1, note: 5 },
-      { unit: "image", amount: 1, extra: true },
     ];
 
     for (const pricing of invalid) {

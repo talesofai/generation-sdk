@@ -10,17 +10,14 @@ export type GenerationPricingUnit = (typeof GENERATION_PRICING_UNITS)[number];
 
 /**
  * Display-only unit price for a model catalog. `unit` names what one charge
- * covers; `amount` is the exact unit price, or use `min`/`max` when the price
- * depends on request parameters (resolution, duration, quality).
+ * covers; `amount` is the exact unit price, or a `min`/`max` pair when the
+ * price depends on request parameters (resolution, duration, quality).
  */
 export type GenerationModelPricing = {
   unit: GenerationPricingUnit;
-  amount?: number;
-  min?: number;
-  max?: number;
   /** Short qualifier shown with the price, e.g. "std-pro". */
   note?: string;
-};
+} & ({ amount: number } | { min: number; max: number });
 
 export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
 
