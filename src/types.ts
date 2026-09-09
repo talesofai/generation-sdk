@@ -4,6 +4,24 @@ export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio"] as const;
 
 export type GenerationModelCategory = (typeof GENERATION_MODEL_CATEGORIES)[number];
 
+export const GENERATION_PRICING_UNITS = ["image", "second", "request", "1m_tokens"] as const;
+
+export type GenerationPricingUnit = (typeof GENERATION_PRICING_UNITS)[number];
+
+/**
+ * Display-only unit price for a model catalog. `unit` names what one charge
+ * covers; `amount` is the exact unit price, or use `min`/`max` when the price
+ * depends on request parameters (resolution, duration, quality).
+ */
+export type GenerationModelPricing = {
+  unit: GenerationPricingUnit;
+  amount?: number;
+  min?: number;
+  max?: number;
+  /** Short qualifier shown with the price, e.g. "std-pro". */
+  note?: string;
+};
+
 export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
 
 export type GenerationContentBlockMeta = Record<string, unknown>;
@@ -99,6 +117,8 @@ export type GenerationModelDeclaration = {
   title?: string;
   /** Product catalog class. */
   category?: GenerationModelCategory;
+  /** Display-only unit price in USD, maintained per deployment. */
+  pricing?: GenerationModelPricing;
   description?: string;
   /** Hide from default discovery while keeping exact-ID lookup and runtime use available. */
   hidden?: boolean;

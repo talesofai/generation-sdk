@@ -4,8 +4,10 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { GenerationConfigError } from "./errors.js";
 import {
   GENERATION_MODEL_CATEGORIES,
+  GENERATION_PRICING_UNITS,
   type GenerationModelCategory,
   type GenerationModelDeclaration,
+  type GenerationModelPricing,
   MODEL_SCHEMA,
 } from "./types.js";
 import { cloneJson, slugifyFileName } from "./utils.js";
@@ -56,6 +58,30 @@ function isGenerationModelCategory(value: unknown): value is GenerationModelCate
   return typeof value === "string" && (GENERATION_MODEL_CATEGORIES as readonly string[]).includes(value);
 }
 
+const PRICING_KEYS = new Set(["unit", "amount", "min", "max", "note"]);
+
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isGenerationModelPricing(value: unknown): value is GenerationModelPricing {
+  if (!isRecord(value)) return false;
+  if (typeof value.unit !== "string" || !(GENERATION_PRICING_UNITS as readonly string[]).includes(value.unit))
+    return false;
+  if (!Object.keys(value).every((key) => PRICING_KEYS.has(key))) return false;
+  if (value.note !== undefined && typeof value.note !== "string") return false;
+
+  const hasAmount = value.amount !== undefined;
+  const hasRange = value.min !== undefined || value.max !== undefined;
+  if (hasAmount === hasRange) return false;
+  if (hasAmount) return isFiniteNonNegative(value.amount);
+
+  if (value.min !== undefined && !isFiniteNonNegative(value.min)) return false;
+  if (value.max !== undefined && !isFiniteNonNegative(value.max)) return false;
+  if (value.min !== undefined && value.max !== undefined) return value.min <= value.max;
+  return true;
+}
+
 function isMetaSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
@@ -80,6 +106,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     typeof value.model === "string" &&
     value.model.trim().length > 0 &&
     (value.category === undefined || isGenerationModelCategory(value.category)) &&
+    (value.pricing === undefined || isGenerationModelPricing(value.pricing)) &&
     (value.hidden === undefined || typeof value.hidden === "boolean") &&
     (value.allowUnknownParameters === undefined || typeof value.allowUnknownParameters === "boolean") &&
     isRecord(adapter) &&
