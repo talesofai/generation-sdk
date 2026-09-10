@@ -247,7 +247,7 @@ describe("config", () => {
 
     const plus = client.getModel("qwen-audio-3.0-tts-plus");
     expect(plus?.description).toBe(
-      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+      "Versatile general-purpose TTS. Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     );
     expect(plus?.content.input.find((input) => input.type === "text")?.description).toContain(
       "at least 15 Unicode code points",
@@ -263,7 +263,7 @@ describe("config", () => {
 
     const higgs = client.getModel("higgs-tts");
     expect(higgs?.description).toBe(
-      "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
+      "High-fidelity voice cloning. Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     );
     expect(higgs?.description).not.toMatch(/Qwen|stronger|HTTP|URL/i);
     expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
@@ -281,6 +281,7 @@ describe("config", () => {
     expect(JSON.parse(client.stringifyModelConfig("higgs-tts", { format: "json" }))).toEqual(higgs);
 
     const breeze = client.getModel("breeze-tts-2");
+    expect(breeze?.description).toContain("Excels at instruction-following for voice design");
     expect(breeze?.description).toContain(
       "Modes: instruction design; one-reference clone; clone with instruction delivery; default voice",
     );
@@ -309,6 +310,7 @@ describe("config", () => {
     expect(JSON.parse(client.stringifyModelConfig("breeze-tts-2", { format: "json" }))).toEqual(breeze);
 
     const indexTts = client.getModel("index-tts-2.5");
+    expect(indexTts?.description).toContain("Precise emotion control");
     expect(indexTts?.description).toContain("Emotion: emotion_audio and emotion_text mutually exclusive");
     expect(indexTts?.description).toContain("Reference: exactly one audio required");
     expect(indexTts?.description).toContain("Text: long-text behavior unmeasured");

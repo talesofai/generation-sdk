@@ -723,7 +723,7 @@ const audioSpeechModels = [
   qwenTtsModel(
     "qwen-audio-3.0-tts-plus",
     "Qwen Audio 3.0 TTS Plus",
-    "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    "Versatile general-purpose TTS. Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     { minimumTextCodePoints: 15 },
   ),
   qwenTtsModel(
@@ -737,7 +737,7 @@ const audioSpeechModels = [
     model: "higgs-tts",
     title: "Higgs TTS",
     description:
-      "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
+      "High-fidelity voice cloning. Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -816,7 +816,7 @@ const audioSpeechModels = [
     model: "breeze-tts-2",
     title: "Breeze TTS 2",
     description:
-      "Modes: instruction design; one-reference clone; clone with instruction delivery; default voice. Instruction: designs voice without reference; guides delivery with reference. Transcript: meta.ref_text optional; auto-transcribed if omitted. Text: <=1000 Unicode code points (~90s speech); split longer text. Dependency: clone prior generated audio.",
+      "Excels at instruction-following for voice design. Modes: instruction design; one-reference clone; clone with instruction delivery; default voice. Instruction: designs voice without reference; guides delivery with reference. Transcript: meta.ref_text optional; auto-transcribed if omitted. Text: <=1000 Unicode code points (~90s speech); split longer text. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -908,7 +908,7 @@ const audioSpeechModels = [
     model: "index-tts-2.5",
     title: "IndexTTS 2.5",
     description:
-      "Modes: one-reference clone (ref emotion); clone with meta.emotion_audio; clone with meta.emotion_text. Reference: exactly one audio required. Emotion: emotion_audio and emotion_text mutually exclusive; ask user, never combine. Rate: duration_factor 0.5-2.0 (>1.0 slower). Language: required. Text: long-text behavior unmeasured. Dependency: clone prior generated audio.",
+      "Precise emotion control. Modes: one-reference clone (ref emotion); clone with meta.emotion_audio; clone with meta.emotion_text. Reference: exactly one audio required. Emotion: emotion_audio and emotion_text mutually exclusive; ask user, never combine. Rate: duration_factor 0.5-2.0 (>1.0 slower). Language: required. Text: long-text behavior unmeasured. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
