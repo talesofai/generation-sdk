@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: index-tts-2.5
 title: IndexTTS 2.5
-description: 'Precise emotion control. Modes: one-reference clone (ref emotion); clone with meta.emotion_audio; clone with meta.emotion_text. Reference: exactly one audio required. Emotion: emotion_audio and emotion_text mutually exclusive; ask user, never combine. Rate: duration_factor 0.5-2.0 (>1.0 slower). Language: required. Text: long-text behavior unmeasured. Dependency: clone prior generated audio.'
+description: 'Precise emotion control. Modes: one-reference clone (ref emotion); clone with meta.emotion_audio; clone with meta.emotion_text. Reference: exactly one audio required. Emotion: emotion_audio and emotion_text mutually exclusive; ask user, never combine. Rate: duration_factor 0.5-2.0 (>1.0 slower). Language: required (zh/en/ja/es/ar). Text: long-text behavior unmeasured. Dependency: clone prior generated audio.'
 adapter:
   type: openai.audioSpeech
 content:

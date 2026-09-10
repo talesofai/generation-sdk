@@ -263,7 +263,7 @@ describe("config", () => {
 
     const higgs = client.getModel("higgs-tts");
     expect(higgs?.description).toBe(
-      "High-fidelity voice cloning. Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
+      "High-fidelity voice cloning with multi-reference blending. Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     );
     expect(higgs?.description).not.toMatch(/Qwen|stronger|HTTP|URL/i);
     expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
