@@ -816,7 +816,7 @@ const audioSpeechModels = [
     model: "breeze-tts-2",
     title: "Breeze TTS 2",
     description:
-      "Modes: meta.instruction voice design; one-reference clone; one-reference clone plus meta.instruction delivery; built-in default voice. Default: the upstream default voice, which cannot be specified and is not guaranteed to stay the same across versions. Instruction: designs the voice without reference audio, directs delivery with reference audio. Transcript: meta.ref_text is optional and only valid with reference audio; an omitted transcript is filled in by automatic transcription. Text: one request must render under about 90 seconds of speech, roughly 250 Chinese characters, and 1000 Unicode code points is a hard ceiling in any language; split longer text across requests. Dependency: clone prior generated audio.",
+      "Modes: instruction design; one-reference clone; clone with instruction delivery; default voice. Instruction: designs voice without reference; guides delivery with reference. Transcript: meta.ref_text optional; auto-transcribed if omitted. Text: <=1000 Unicode code points (~90s speech); split longer text. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -908,7 +908,7 @@ const audioSpeechModels = [
     model: "index-tts-2.5",
     title: "IndexTTS 2.5",
     description:
-      "Modes: one-reference clone with the emotion of the reference audio; clone with the emotion of meta.emotion_audio; clone with the emotion of meta.emotion_text. Reference: exactly one reference audio is required. Emotion: meta.emotion_audio and meta.emotion_text are mutually exclusive; ask the user which one to keep, never combine them. Rate: meta.duration_factor 0.5-2.0, above 1.0 is slower. Language: meta.language is required. Text: long-text behaviour has not been measured. Dependency: clone prior generated audio.",
+      "Modes: one-reference clone (ref emotion); clone with meta.emotion_audio; clone with meta.emotion_text. Reference: exactly one audio required. Emotion: emotion_audio and emotion_text mutually exclusive; ask user, never combine. Rate: duration_factor 0.5-2.0 (>1.0 slower). Language: required. Text: long-text behavior unmeasured. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [

@@ -282,16 +282,16 @@ describe("config", () => {
 
     const breeze = client.getModel("breeze-tts-2");
     expect(breeze?.description).toContain(
-      "Modes: meta.instruction voice design; one-reference clone; one-reference clone plus meta.instruction delivery; built-in default voice",
+      "Modes: instruction design; one-reference clone; clone with instruction delivery; default voice",
     );
     expect(breeze?.description).toContain(
-      "Default: the upstream default voice, which cannot be specified and is not guaranteed to stay the same across versions",
+      "Instruction: designs voice without reference; guides delivery with reference",
     );
     // The actor hard-fails a request whose rendered audio reaches its ~90s
     // generation ceiling, so "any length" would send agents into a request that
     // burns a full GPU run before failing. The declaration is the source of
     // truth agents read; it has to carry the real limit.
-    expect(breeze?.description).toContain("must render under about 90 seconds of speech");
+    expect(breeze?.description).toContain("~90s speech");
     expect(breeze?.description).not.toContain("Text: any length");
     expect(breeze?.content.input.find((input) => input.type === "audio")?.max).toBe(1);
     expect(breeze?.content.input.find((input) => input.type === "audio")?.sources).toEqual(["url"]);
@@ -309,11 +309,9 @@ describe("config", () => {
     expect(JSON.parse(client.stringifyModelConfig("breeze-tts-2", { format: "json" }))).toEqual(breeze);
 
     const indexTts = client.getModel("index-tts-2.5");
-    expect(indexTts?.description).toContain(
-      "Emotion: meta.emotion_audio and meta.emotion_text are mutually exclusive",
-    );
-    expect(indexTts?.description).toContain("Reference: exactly one reference audio is required");
-    expect(indexTts?.description).toContain("Text: long-text behaviour has not been measured");
+    expect(indexTts?.description).toContain("Emotion: emotion_audio and emotion_text mutually exclusive");
+    expect(indexTts?.description).toContain("Reference: exactly one audio required");
+    expect(indexTts?.description).toContain("Text: long-text behavior unmeasured");
     expect(indexTts?.content.input.find((input) => input.type === "audio")).toMatchObject({
       required: true,
       max: 1,
