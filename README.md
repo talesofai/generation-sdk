@@ -54,6 +54,26 @@ const client = createGenerationClient({
 });
 ```
 
+## Realtime
+
+`connectRealtime` opens a raw WebSocket to `/v1/realtime` (OpenAI Realtime API compatible; the upstream provider is resolved server-side from the model's channel, same as every other adapter here). This is a byte-level connection, not a parsed realtime-protocol client -- speak the OpenAI Realtime event protocol directly over the returned socket.
+
+```ts
+import { createGenerationClient } from "@neta-art/generation";
+
+const client = createGenerationClient({ apiKey: process.env.NETA_ROUTER_API_KEY! });
+const socket = client.connectRealtime("gpt-realtime-2.1");
+
+socket.on("open", () => {
+  socket.send(JSON.stringify({ type: "session.update", session: { type: "voice-agent" } }));
+});
+socket.on("message", (data) => {
+  console.log(JSON.parse(data.toString()));
+});
+```
+
+`connectRealtime` is also exported standalone for callers that don't need the rest of the client (`import { connectRealtime } from "@neta-art/generation"`).
+
 ## Agent and tool discovery
 
 Agents and external tools should inspect a model declaration before constructing a request. Declarations expose the accepted content blocks, source types, parameters, meta fields, descriptions, and validated request examples.
