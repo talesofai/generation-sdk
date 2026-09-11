@@ -29,6 +29,44 @@ describe("openai.images adapter", () => {
       size: "1024x1024",
     });
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(JSON.parse(String(calls[0]?.init.body))).not.toHaveProperty("background");
+    expect(JSON.parse(String(calls[0]?.init.body))).not.toHaveProperty("output_format");
+  });
+
+  it("forwards GPT image transparent background requests as png", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ b64_json: "abc" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const output = await client.generate({
+      model: "gpt-image-2",
+      content: [{ type: "text", text: "a ceramic cup isolated on a transparent background" }],
+      parameters: { background: "transparent" },
+    });
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      model: "gpt-image-2",
+      background: "transparent",
+      output_format: "png",
+    });
+    expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
+  });
+
+  it("rejects transparent GPT image output as jpeg", async () => {
+    const client = createGenerationClient({ apiKey: "key", fetch: (() => undefined) as unknown as typeof fetch });
+    await expect(
+      client.generate({
+        model: "gpt-image-2",
+        content: [{ type: "text", text: "a ceramic cup isolated on a transparent background" }],
+        parameters: { background: "transparent", output_format: "jpeg" },
+      }),
+    ).rejects.toThrow("Transparent background requires output_format png or webp");
   });
 
   it("omits unsupported Krea quality settings", async () => {

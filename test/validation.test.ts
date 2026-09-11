@@ -15,7 +15,22 @@ describe("validation", () => {
       model: "gpt-image-2",
       content: [{ type: "text", text: "hello" }],
     });
-    expect(resolved.parameters).toMatchObject({ size: "1024x1024", quality: "auto" });
+    expect(resolved.parameters).toEqual({ size: "1024x1024", quality: "auto" });
+  });
+
+  it("accepts GPT image transparent background parameters", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const resolved = client.validate({
+      model: "gpt-image-2",
+      content: [{ type: "text", text: "a ceramic cup" }],
+      parameters: { background: "transparent", output_format: "png" },
+    });
+    expect(resolved.parameters).toEqual({
+      size: "1024x1024",
+      quality: "auto",
+      background: "transparent",
+      output_format: "png",
+    });
   });
 
   it("rejects unknown parameters", () => {
