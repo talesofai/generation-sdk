@@ -47,18 +47,18 @@ liveDescribe("audio speech live router smoke", () => {
     const runId = `${Date.now()}`;
     const cases: Array<{ name: string; request: GenerateRequest }> = [
       {
-        name: "qwen voice design",
+        name: "cosyvoice v3.5 plus voice design",
         request: {
-          model: "qwen-tts",
-          content: [text(`这是基础模型设计音色端到端测试，运行编号${runId}。`)],
+          model: "cosyvoice-v3.5-plus",
+          content: [text(`这是CosyVoice设计音色端到端测试，运行编号${runId}。`)],
           meta: { voice_prompt: "一位沉稳干练的男性播音员声音，吐字清晰有力" },
         },
       },
       {
-        name: "qwen voice clone",
+        name: "cosyvoice v3.5 flash voice clone",
         request: {
-          model: "qwen-tts",
-          content: [text(`这是基础模型克隆音色端到端测试，运行编号${runId}。`), audio(REFERENCE_A)],
+          model: "cosyvoice-v3.5-flash",
+          content: [text(`这是CosyVoice克隆音色端到端测试，运行编号${runId}。`), audio(REFERENCE_A)],
         },
       },
       {
