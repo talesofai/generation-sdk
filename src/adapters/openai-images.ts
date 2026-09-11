@@ -47,6 +47,20 @@ function requiresPrompt(input: GenerationAdapterInput): boolean {
   return !!textSpec && (textSpec.required === true || (textSpec.min ?? 0) > 0);
 }
 
+function applyTransparentBackgroundOutputFormat(payload: Record<string, unknown>): void {
+  if (payload.background !== "transparent") return;
+  if (payload.output_format === "jpeg") {
+    throw new GenerationValidationError("Transparent background requires output_format png or webp");
+  }
+  if (payload.output_format === undefined) payload.output_format = "png";
+}
+
+function mediaTypeForOutputFormat(format: unknown): string {
+  if (format === "jpeg") return "image/jpeg";
+  if (format === "webp") return "image/webp";
+  return "image/png";
+}
+
 export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt && requiresPrompt(input)) throw new GenerationValidationError("Prompt text is required");
@@ -63,6 +77,8 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
     ...input.parameters,
   };
   if (images.length > 0) payload.image = images;
+  applyTransparentBackgroundOutputFormat(payload);
+  const outputMediaType = mediaTypeForOutputFormat(payload.output_format);
 
   const response = await fetchWithTimeout(
     input.context.fetch,
@@ -90,7 +106,7 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
       output.push({ type: "image", source: { type: "url", url: item.url } });
     }
     if (typeof item.b64_json === "string" && item.b64_json) {
-      output.push({ type: "image", source: { type: "base64", mediaType: "image/png", data: item.b64_json } });
+      output.push({ type: "image", source: { type: "base64", mediaType: outputMediaType, data: item.b64_json } });
     }
     if (typeof item.revised_prompt === "string" && item.revised_prompt.trim()) {
       output.push({ type: "text", text: item.revised_prompt, meta: { role: "revised_prompt" } });

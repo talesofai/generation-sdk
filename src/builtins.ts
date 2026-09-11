@@ -17,6 +17,18 @@ const imageSizeParameters = {
     enum: ["auto", "low", "medium", "high"],
     description: "Image quality.",
   },
+  background: {
+    type: "string",
+    optional: true,
+    enum: ["auto", "opaque", "transparent"],
+    description: "Requested background. Transparent output requires png or webp.",
+  },
+  output_format: {
+    type: "string",
+    optional: true,
+    enum: ["png", "jpeg", "webp"],
+    description: "Requested output file format. JPEG cannot preserve a transparent background.",
+  },
 } satisfies GenerationModelDeclaration["parameters"];
 
 const krea2ImageParameters = {
@@ -843,6 +855,14 @@ const builtinModels = [
           model: "gpt-image-2",
           content: [{ type: "text", text: "a cyberpunk cat in neon rain" }],
           parameters: { size: "1024x1024", quality: "auto" },
+        },
+      },
+      {
+        title: "Transparent background",
+        request: {
+          model: "gpt-image-2",
+          content: [{ type: "text", text: "a ceramic cup isolated on a transparent background" }],
+          parameters: { size: "1024x1024", quality: "high", background: "transparent", output_format: "png" },
         },
       },
     ],
