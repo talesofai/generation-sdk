@@ -8,8 +8,13 @@ import type {
 } from "../types.js";
 
 const REQUEST_TIMEOUT_MS = 210_000;
-const QWEN_MODELS = new Set(["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
-const QWEN_AUDIO_3_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
+const VOICE_ENROLLMENT_MODELS = new Set([
+  "cosyvoice-v3.5-plus",
+  "cosyvoice-v3.5-flash",
+  "qwen-audio-3.0-tts-plus",
+  "qwen-audio-3.0-tts-flash",
+]);
+const VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS = 200;
 const HIGGS_MODEL = "higgs-tts";
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
@@ -92,8 +97,17 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
     );
   }
 
-  if (QWEN_AUDIO_3_MODELS.has(input.declaration.model) && Array.from(text.text.trim()).length < 15) {
+  const codePoints = Array.from(text.text.trim()).length;
+  if (codePoints < 15) {
     throw new GenerationValidationError(`${input.declaration.model} requires input of at least 15 Unicode code points`);
+  }
+  // Voice design speaks exactly this text as the preview clip, so the model's
+  // 15-200 character preview window applies; cloning only feeds the separate
+  // synthesis call, where long-form text is legitimate.
+  if (audio.length === 0 && codePoints > VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} voice design requires input of at most ${VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS} Unicode code points`,
+    );
   }
 }
 
@@ -124,7 +138,7 @@ function validateHiggs(input: ResolvedGenerationRequest, text: TextBlock, audio:
 
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
-  if (QWEN_MODELS.has(input.declaration.model)) {
+  if (VOICE_ENROLLMENT_MODELS.has(input.declaration.model)) {
     validateQwen(input, text, audio);
     return;
   }
@@ -148,7 +162,7 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
     input: text.text,
   };
 
-  if (QWEN_MODELS.has(input.declaration.model)) {
+  if (VOICE_ENROLLMENT_MODELS.has(input.declaration.model)) {
     if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
     else payload.metadata = { voice_prompt: input.meta.voice_prompt };
     return payload;
