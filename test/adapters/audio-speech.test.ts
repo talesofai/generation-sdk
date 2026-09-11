@@ -39,10 +39,10 @@ function audio(url = REFERENCE_URL, meta?: Record<string, unknown>): GenerationC
   };
 }
 
-function qwenDesignRequest(overrides: Partial<GenerateRequest> = {}): GenerateRequest {
+function designRequest(overrides: Partial<GenerateRequest> = {}): GenerateRequest {
   return {
-    model: "qwen-tts",
-    content: [{ type: "text", text: "这是需要朗读的文本。" }],
+    model: "cosyvoice-v3.5-plus",
+    content: [{ type: "text", text: "这是需要朗读的一段完整试听文本。" }],
     meta: { voice_prompt: "沉稳清晰的男性播音员声音" },
     ...overrides,
   };
@@ -65,15 +65,15 @@ function requestBody(call: { init: RequestInit } | undefined): Record<string, un
 }
 
 describe("openai.audioSpeech adapter requests", () => {
-  it("sends the fixed wire contract and preserves Qwen input and voice prompt", async () => {
+  it("sends the fixed wire contract and preserves voice-enrollment input and voice prompt", async () => {
     const { client, calls } = recordingClient(() =>
       routerSuccess({}, { headers: { "x-request-id": "request-primary", "x-oneapi-request-id": "request-fallback" } }),
     );
-    const input = "  原样保留的朗读文本。\n";
+    const input = "  原样保留的一段完整朗读试听文本。\n";
     const voicePrompt = "  沉稳清晰的声音。\n";
 
     const output = await client.generate({
-      model: "qwen-tts",
+      model: "cosyvoice-v3.5-plus",
       content: [{ type: "text", text: input }],
       meta: { voice_prompt: voicePrompt },
     });
@@ -85,7 +85,7 @@ describe("openai.audioSpeech adapter requests", () => {
       new Headers({ Authorization: "Bearer secret-key", "Content-Type": "application/json" }),
     );
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
+      model: "cosyvoice-v3.5-plus",
       input,
       metadata: { voice_prompt: voicePrompt },
     });
@@ -98,16 +98,16 @@ describe("openai.audioSpeech adapter requests", () => {
     ]);
   });
 
-  it("maps Qwen reference audio and trims only its URL", async () => {
+  it("maps voice-enrollment reference audio and trims only its URL", async () => {
     const { client, calls } = recordingClient();
     await client.generate({
-      model: "qwen-tts",
-      content: [{ type: "text", text: "短句" }, audio(`  ${REFERENCE_URL}\n`)],
+      model: "cosyvoice-v3.5-plus",
+      content: [{ type: "text", text: "这是一段足够长的克隆试听文本。" }, audio(`  ${REFERENCE_URL}\n`)],
     });
 
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
-      input: "短句",
+      model: "cosyvoice-v3.5-plus",
+      input: "这是一段足够长的克隆试听文本。",
       ref_audio: REFERENCE_URL,
     });
   });
@@ -115,14 +115,14 @@ describe("openai.audioSpeech adapter requests", () => {
   it("silently ignores deprecated preview_text without sending it", async () => {
     const { client, calls } = recordingClient();
     await client.generate(
-      qwenDesignRequest({
+      designRequest({
         meta: { voice_prompt: "清晰女声", preview_text: "旧字段不应发送" },
       }),
     );
 
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
-      input: "这是需要朗读的文本。",
+      model: "cosyvoice-v3.5-plus",
+      input: "这是需要朗读的一段完整试听文本。",
       metadata: { voice_prompt: "清晰女声" },
     });
   });
@@ -194,12 +194,12 @@ describe("openai.audioSpeech adapter validation", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("accepts retired preview_text without treating it as a Qwen voice source", () => {
+  it("accepts retired preview_text without treating it as a voice source", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
       client.validate({
-        model: "qwen-tts",
-        content: [{ type: "text", text: "有效语音文本" }],
+        model: "cosyvoice-v3.5-plus",
+        content: [{ type: "text", text: "这是一段有效的语音试听文本。" }],
         meta: { preview_text: "已经失效的文本来源" },
       }),
     ).toThrow("requires one reference audio or meta.voice_prompt");
@@ -208,41 +208,41 @@ describe("openai.audioSpeech adapter validation", () => {
   it.each([
     {
       name: "neither voice source",
-      request: qwenDesignRequest({ meta: {} }),
+      request: designRequest({ meta: {} }),
     },
     {
       name: "both voice sources",
-      request: qwenDesignRequest({
+      request: designRequest({
         content: [{ type: "text", text: "文本" }, audio()],
       }),
     },
     {
       name: "blank voice prompt",
-      request: qwenDesignRequest({ meta: { voice_prompt: " \n " } }),
+      request: designRequest({ meta: { voice_prompt: " \n " } }),
     },
     {
       name: "audio weight",
-      request: qwenDesignRequest({
+      request: designRequest({
         content: [{ type: "text", text: "文本" }, audio(REFERENCE_URL, { weight: 1 })],
         meta: {},
       }),
     },
-  ])("rejects Qwen $name", ({ request }) => {
+  ])("rejects voice-enrollment $name", ({ request }) => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() => client.validate(request)).toThrow(GenerationValidationError);
   });
 
-  it("enforces Qwen reference limits inside the adapter hook when a declaration is overridden", () => {
-    const declaration = getBuiltinGenerationModel("qwen-tts");
-    if (!declaration) throw new Error("qwen-tts declaration is unavailable");
+  it("enforces voice-enrollment reference limits inside the adapter hook when a declaration is overridden", () => {
+    const declaration = getBuiltinGenerationModel("cosyvoice-v3.5-plus");
+    if (!declaration) throw new Error("cosyvoice-v3.5-plus declaration is unavailable");
     const audioSpec = declaration.content.input.find((spec) => spec.type === "audio");
-    if (!audioSpec) throw new Error("qwen-tts audio spec is unavailable");
+    if (!audioSpec) throw new Error("cosyvoice-v3.5-plus audio spec is unavailable");
     audioSpec.max = 2;
     const client = createGenerationClient({ models: [declaration], includeBuiltinModels: false, apiKey: "key" });
 
     expect(() =>
       client.validate({
-        model: "qwen-tts",
+        model: "cosyvoice-v3.5-plus",
         content: [{ type: "text", text: "文本" }, audio(), audio(SECOND_REFERENCE_URL)],
       }),
     ).toThrow("supports at most one reference audio");
@@ -270,6 +270,8 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it.each([
+    { model: "cosyvoice-v3.5-plus", text: "a".repeat(14) },
+    { model: "cosyvoice-v3.5-flash", text: "😀".repeat(14) },
     { model: "qwen-audio-3.0-tts-plus", text: "a".repeat(14) },
     { model: "qwen-audio-3.0-tts-flash", text: "😀".repeat(14) },
   ])("rejects $model input below 15 Unicode code points", ({ model, text }) => {
@@ -280,20 +282,38 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it.each([
+    { model: "cosyvoice-v3.5-plus", text: "a".repeat(15) },
+    { model: "cosyvoice-v3.5-flash", text: ` ${"😀".repeat(15)} ` },
     { model: "qwen-audio-3.0-tts-plus", text: "a".repeat(15) },
     { model: "qwen-audio-3.0-tts-flash", text: ` ${"😀".repeat(15)} ` },
-    { model: "qwen-tts", text: "短" },
-    { model: "qwen-tts", text: "a".repeat(40) },
-  ])("accepts the $model input boundary", ({ model, text }) => {
+  ])("accepts the $model clone input boundary", ({ model, text }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).not.toThrow();
+  });
+
+  it.each([
+    { model: "cosyvoice-v3.5-plus", text: "a".repeat(201) },
+    { model: "cosyvoice-v3.5-flash", text: "😀".repeat(201) },
+  ])("rejects $model voice-design input above 200 Unicode code points", ({ model, text }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate({ model, content: [{ type: "text", text }], meta: { voice_prompt: "声音" } })).toThrow(
+      "voice design requires input of at most 200 Unicode code points",
+    );
+  });
+
+  it.each([
+    { model: "cosyvoice-v3.5-plus", text: "a".repeat(201) },
+    { model: "cosyvoice-v3.5-flash", text: "😀".repeat(201) },
+  ])("accepts $model clone input above 200 Unicode code points", ({ model, text }) => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).not.toThrow();
   });
 
   it.each<{ label: string; request: GenerateRequest }>([
-    { label: "request typo", request: qwenDesignRequest({ meta: { voice_promt: "拼错" } }) },
+    { label: "request typo", request: designRequest({ meta: { voice_promt: "拼错" } }) },
     {
       label: "raw ref_audio",
-      request: qwenDesignRequest({ meta: { voice_prompt: "声音", ref_audio: REFERENCE_URL } }),
+      request: designRequest({ meta: { voice_prompt: "声音", ref_audio: REFERENCE_URL } }),
     },
     {
       label: "raw references",

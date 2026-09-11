@@ -1,7 +1,8 @@
 schema: neta.generation.model.v1
 model: qwen-audio-3.0-tts-plus
 title: Qwen Audio 3.0 TTS Plus
-description: 'Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.'
+description: "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points (design mode: <=200).
+  Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio."
 adapter:
   type: openai.audioSpeech
 content:
@@ -10,19 +11,20 @@ content:
       required: true
       min: 1
       max: 1
-      description: Exactly one non-empty text block to speak, with at least 15 Unicode code points.
+      description: Exactly one non-empty text block to speak, with at least 15 Unicode code points (at most 200 in
+        voice-design mode).
     - type: audio
       required: false
       max: 1
       sources:
         - url
-      description: 'Clone: one URL; no voice_prompt. Dependency: use prior generated audio.'
+      description: "Clone: one URL; no voice_prompt. Dependency: use prior generated audio."
 meta:
   fields:
     voice_prompt:
       type: string
       optional: true
-      description: 'Design: custom voice text; no reference audio.'
+      description: "Design: custom voice text; no reference audio."
 examples:
   - title: Voice design
     request:

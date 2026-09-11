@@ -1,6 +1,6 @@
 schema: neta.generation.model.v1
-model: qwen-audio-3.0-tts-flash
-title: Qwen Audio 3.0 TTS Flash
+model: cosyvoice-v3.5-flash
+title: CosyVoice v3.5 Flash
 description: "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points (design mode: <=200).
   Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio."
 adapter:
@@ -28,7 +28,7 @@ meta:
 examples:
   - title: Voice design
     request:
-      model: qwen-audio-3.0-tts-flash
+      model: cosyvoice-v3.5-flash
       content:
         - type: text
           text: 这是一段长度足够并且表达清晰自然的语音合成测试文本。
@@ -36,7 +36,7 @@ examples:
         voice_prompt: 一位沉稳干练的男性播音员声音，吐字清晰有力
   - title: Voice clone
     request:
-      model: qwen-audio-3.0-tts-flash
+      model: cosyvoice-v3.5-flash
       content:
         - type: text
           text: 这是一段长度足够并且表达清晰自然的语音合成测试文本。

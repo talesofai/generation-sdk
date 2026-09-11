@@ -62,7 +62,7 @@ Agents and external tools should inspect a model declaration before constructing
 import { createGenerationClient } from "@neta-art/generation";
 
 const discoveryClient = createGenerationClient();
-const declaration = discoveryClient.getModel("qwen-tts");
+const declaration = discoveryClient.getModel("cosyvoice-v3.5-plus");
 if (!declaration) throw new Error("Model is unavailable");
 
 console.log(discoveryClient.stringifyModelConfig(declaration.model, { format: "json" }));
@@ -84,7 +84,7 @@ The same declarations can be exported as YAML through the existing CLI:
 
 ```bash
 neta-generation models list
-neta-generation models export qwen-tts --out ./qwen-tts.yaml
+neta-generation models export cosyvoice-v3.5-plus --out ./cosyvoice-v3.5-plus.yaml
 neta-generation models export-all --out ./models
 ```
 
@@ -170,7 +170,8 @@ const client = createGenerationClient({
 - `gpt-image-2`
 - `z-image-turbo`
 - `qwen-image-edit`
-- `qwen-tts`
+- `cosyvoice-v3.5-plus`
+- `cosyvoice-v3.5-flash`
 - `qwen-audio-3.0-tts-plus`
 - `qwen-audio-3.0-tts-flash`
 - `higgs-tts`
@@ -267,22 +268,22 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 | Requirement | Model choice |
 | --- | --- |
-| Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
+| Create a voice from a text-only description, without reference audio | Use an explicitly requested cosyvoice variant; otherwise use `cosyvoice-v3.5-flash` as the deterministic default |
 | Maximize fidelity to one reference voice | `higgs-tts` |
 | Blend 2-16 weighted reference voices | `higgs-tts` |
 | Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `higgs-tts` |
 
-- Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
+- CosyVoice / Qwen-Audio-TTS: `voice_prompt` design OR one-reference clone; `cosyvoice-v3.5-plus`, `cosyvoice-v3.5-flash`, `qwen-audio-3.0-tts-plus`, and `qwen-audio-3.0-tts-flash` all require at least 15 Unicode code points (and at most 200 in design mode); `cosyvoice-v3.5-flash` is the deterministic default when no variant is requested.
 - Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
 - Conflict: reference + redesign requires user choice before generation.
 - Blend: all references, full text, one request.
 - Dependency: clone prior generated audio.
-- Ranking: no declared Qwen quality, latency, or cost order.
+- Ranking: no declared CosyVoice / Qwen quality, latency, or cost order.
 
 ```ts
 await client.generate({
-  model: "qwen-tts",
-  content: [{ type: "text", text: "欢迎使用语音合成功能。" }],
+  model: "cosyvoice-v3.5-flash",
+  content: [{ type: "text", text: "欢迎使用语音合成功能，这是一段示例文本。" }],
   meta: {
     voice_prompt: "一位沉稳自然的中文播音员，吐字清晰，语速适中",
   },
