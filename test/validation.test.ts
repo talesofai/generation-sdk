@@ -91,6 +91,24 @@ describe("validation", () => {
     ).toThrow("video role is required by seedance-2-0-fast");
   });
 
+  it("rejects missing required audio roles for Seedance", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0-fast",
+        content: [
+          { type: "text", text: "use this soundtrack" },
+          {
+            type: "image",
+            source: { type: "url", url: "https://example.com/subject.jpg" },
+            meta: { role: "reference_image" },
+          },
+          { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+        ],
+      }),
+    ).toThrow("audio role is required by seedance-2-0-fast");
+  });
+
   it("runs a custom adapter validation hook exactly once per validate or generate call", async () => {
     let validationCalls = 0;
     let adapterCalls = 0;

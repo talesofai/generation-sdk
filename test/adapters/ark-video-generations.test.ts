@@ -15,6 +15,10 @@ function videoBlock(url: string, meta?: Record<string, unknown>): GenerationCont
   return { type: "video", source: { type: "url", url }, ...(meta ? { meta } : {}) };
 }
 
+function audioBlock(url: string, meta?: Record<string, unknown>): GenerationContentBlock {
+  return { type: "audio", source: { type: "url", url }, ...(meta ? { meta } : {}) };
+}
+
 function parseCreateBody(calls: FetchCall[]): Record<string, unknown> {
   return JSON.parse(String(calls[0]?.init.body ?? "{}")) as Record<string, unknown>;
 }
@@ -171,6 +175,65 @@ describe("ark.videoGenerations adapter", () => {
       { type: "video_url", video_url: { url: "https://example.com/motion.mp4" }, role: "reference_video" },
     ]);
     expect((metadata.content as Array<{ type: string }>).some((item) => item.type === "text")).toBe(false);
+  });
+
+  it("sends reference audio beside visual media as metadata audio_url", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([
+      textBlock("keep the subject from the image and the rhythm from the audio"),
+      imageBlock("https://example.com/subject.jpg", { role: "reference_image" }),
+      audioBlock("https://example.com/reference.mp3", { role: "reference_audio" }),
+    ]);
+    const body = parseCreateBody(calls);
+    const metadata = body.metadata as Record<string, unknown>;
+
+    expect(body.image).toBeUndefined();
+    expect(metadata.content).toEqual([
+      { type: "image_url", image_url: { url: "https://example.com/subject.jpg" }, role: "reference_image" },
+      { type: "audio_url", audio_url: { url: "https://example.com/reference.mp3" }, role: "reference_audio" },
+    ]);
+  });
+
+  it("sends reference audio with first and last frames", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([
+      textBlock("create a smooth cinematic transition with this soundtrack"),
+      imageBlock("https://example.com/first.jpg", { role: "first_frame" }),
+      imageBlock("https://example.com/last.jpg", { role: "last_frame" }),
+      audioBlock("https://example.com/reference.mp3", { role: "reference_audio" }),
+    ]);
+    const body = parseCreateBody(calls);
+    const metadata = body.metadata as Record<string, unknown>;
+
+    expect(metadata.content).toEqual([
+      { type: "image_url", image_url: { url: "https://example.com/first.jpg" }, role: "first_frame" },
+      { type: "image_url", image_url: { url: "https://example.com/last.jpg" }, role: "last_frame" },
+      { type: "audio_url", audio_url: { url: "https://example.com/reference.mp3" }, role: "reference_audio" },
+    ]);
+  });
+
+  it("puts a plain image into metadata content when reference audio is present", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([
+      textBlock("animate this still with the provided soundtrack"),
+      imageBlock("https://example.com/plain.jpg"),
+      audioBlock("https://example.com/reference.mp3", { role: "reference_audio" }),
+    ]);
+    const body = parseCreateBody(calls);
+    const metadata = body.metadata as Record<string, unknown>;
+
+    expect(body.image).toBeUndefined();
+    expect(metadata.content).toEqual([
+      { type: "image_url", image_url: { url: "https://example.com/plain.jpg" } },
+      { type: "audio_url", audio_url: { url: "https://example.com/reference.mp3" }, role: "reference_audio" },
+    ]);
+  });
+
+  it("rejects audio-only Seedance requests before resolving sources", async () => {
+    await expectVideoGenerationValidationError(
+      [
+        textBlock("this has audio but no visual reference"),
+        audioBlock("https://example.com/reference.mp3", { role: "reference_audio" }),
+      ],
+      "Seedance audio input requires at least one image or video",
+    );
   });
 
   it("rejects mixed frame and reference media before resolving sources", async () => {

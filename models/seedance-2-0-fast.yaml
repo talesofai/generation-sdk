@@ -2,7 +2,7 @@ schema: neta.generation.model.v1
 model: seedance-2-0-fast
 title: Seedance 2.0 Fast
 category: video
-description: Fast video generation model that accepts text, image, and video inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.
+description: Fast video generation model that accepts text, image, video, and audio inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.
 adapter:
   type: ark.videoGenerations
 content:
@@ -32,6 +32,15 @@ content:
         - reference_video
       roleRequired: true
       description: Optional public URL reference video input. Use meta.role as reference_video.
+    - type: audio
+      required: false
+      max: 3
+      sources:
+        - url
+      roles:
+        - reference_audio
+      roleRequired: true
+      description: Optional public URL reference audio. Use meta.role reference_audio. Audio cannot be the only media input; include at least one image or video.
 parameters:
   duration:
     type: integer
