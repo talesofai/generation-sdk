@@ -34,9 +34,14 @@ type ArkTaskStatusResponse = {
 };
 
 type MediaMode = "image" | "frame" | "reference";
-type MediaKind = "image" | "video";
+type VisualKind = "image" | "video";
+type MediaKind = VisualKind | "audio";
 type InputMedia = { kind: MediaKind; source: GenerationSource; role: string | undefined };
 type ResolvedMedia = { kind: MediaKind; url: string; role: string | undefined };
+type VisualInputMedia = InputMedia & { kind: VisualKind };
+type VisualResolvedMedia = ResolvedMedia & { kind: VisualKind };
+
+const MAX_REFERENCE_AUDIO = 3;
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
@@ -60,9 +65,33 @@ function getIntegerParameter(parameters: Record<string, unknown>, key: string, f
   return typeof value === "number" && Number.isInteger(value) ? value : fallback;
 }
 
-function getMediaRole(block: Extract<GenerationContentBlock, { type: "image" | "video" }>): string | undefined {
+function getMediaRole(
+  block: Extract<GenerationContentBlock, { type: "image" | "video" | "audio" }>,
+): string | undefined {
   const role = getBlockMeta(block)?.role;
   return typeof role === "string" && role ? role : undefined;
+}
+
+function isVisualMedia(item: InputMedia): item is VisualInputMedia {
+  return item.kind === "image" || item.kind === "video";
+}
+
+function isVisualResolved(item: ResolvedMedia): item is VisualResolvedMedia {
+  return item.kind === "image" || item.kind === "video";
+}
+
+function validateAudioInputs(audio: InputMedia[], visual: InputMedia[]): void {
+  for (const item of audio) {
+    if (item.role !== "reference_audio") {
+      throw new GenerationValidationError("Audio input must use meta.role reference_audio");
+    }
+  }
+  if (audio.length > MAX_REFERENCE_AUDIO) {
+    throw new GenerationValidationError(`Seedance supports at most ${MAX_REFERENCE_AUDIO} reference_audio files`);
+  }
+  if (audio.length > 0 && visual.length === 0) {
+    throw new GenerationValidationError("Seedance audio input requires at least one image or video");
+  }
 }
 
 function isFrameImage(item: InputMedia): boolean {
@@ -82,7 +111,7 @@ function assertSingleRole(media: InputMedia[], role: string, message: string): v
   }
 }
 
-function classifyMedia(media: InputMedia[]): MediaMode | null {
+function classifyMedia(media: VisualInputMedia[]): MediaMode | null {
   if (media.length === 0) return null;
 
   for (const item of media) {
@@ -126,7 +155,7 @@ function classifyMedia(media: InputMedia[]): MediaMode | null {
   return null;
 }
 
-function buildMetadataContent(media: ResolvedMedia[], mode: Exclude<MediaMode, "image">) {
+function buildVisualContent(media: VisualResolvedMedia[], mode: Exclude<MediaMode, "image">) {
   const content: Array<Record<string, unknown>> = [];
   for (const item of media) {
     if (mode === "frame" && (item.kind !== "image" || (item.role !== "first_frame" && item.role !== "last_frame"))) {
@@ -148,6 +177,20 @@ function buildMetadataContent(media: ResolvedMedia[], mode: Exclude<MediaMode, "
     }
   }
   return content;
+}
+
+function buildAudioContent(media: ResolvedMedia[]): Array<Record<string, unknown>> {
+  return media.map((item) => ({
+    type: "audio_url",
+    audio_url: { url: item.url },
+    role: "reference_audio",
+  }));
+}
+
+function buildPlainImageContent(media: VisualResolvedMedia[]): Array<Record<string, unknown>> {
+  const image = media.find((item) => item.kind === "image");
+  if (!image) return [];
+  return [compactObject({ type: "image_url", image_url: { url: image.url }, role: image.role })];
 }
 
 async function resolveMedia(input: GenerationAdapterInput, media: InputMedia[]): Promise<ResolvedMedia[]> {
@@ -221,17 +264,22 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   if (!prompt) throw new GenerationValidationError("Prompt text is required");
 
   const mediaBlocks = input.request.content.filter(
-    (block): block is Extract<GenerationContentBlock, { type: "image" | "video" }> =>
-      block.type === "image" || block.type === "video",
+    (block): block is Extract<GenerationContentBlock, { type: "image" | "video" | "audio" }> =>
+      block.type === "image" || block.type === "video" || block.type === "audio",
   );
   const inputMedia: InputMedia[] = mediaBlocks.map((block) => ({
     kind: block.type,
     source: block.source,
     role: getMediaRole(block),
   }));
+  const visualInput = inputMedia.filter(isVisualMedia);
+  const audioInput = inputMedia.filter((item) => item.kind === "audio");
+  validateAudioInputs(audioInput, visualInput);
 
-  const mode = classifyMedia(inputMedia);
+  const mode = classifyMedia(visualInput);
   const media = await resolveMedia(input, inputMedia);
+  const visual = media.filter(isVisualResolved);
+  const audio = media.filter((item) => item.kind === "audio");
   const resolution = asString(input.parameters.resolution) ?? "720p";
   const ratio = asString(input.request.parameters?.ratio) ?? asString(input.parameters.ratio) ?? "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);
@@ -252,9 +300,11 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   if (watermark) metadata.watermark = true;
 
   if (mode === "frame" || mode === "reference") {
-    metadata.content = buildMetadataContent(media, mode);
+    metadata.content = [...buildVisualContent(visual, mode), ...buildAudioContent(audio)];
+  } else if (audio.length > 0) {
+    metadata.content = [...buildPlainImageContent(visual), ...buildAudioContent(audio)];
   } else {
-    const firstImage = media.find((item) => item.kind === "image");
+    const firstImage = visual.find((item) => item.kind === "image");
     if (firstImage) payload.image = firstImage.url;
   }
   payload.metadata = metadata;

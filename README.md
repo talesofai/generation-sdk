@@ -358,6 +358,19 @@ await client.generate({
 });
 ```
 
+Seedance reference audio uses a public URL and `meta.role: "reference_audio"`. Audio cannot be the only media input; include at least one image or video in the same request:
+
+```ts
+await client.generate({
+  model: "seedance-2-0",
+  content: [
+    { type: "text", text: "keep the subject from the image and the rhythm from the audio" },
+    { type: "image", source: { type: "url", url: "https://example.com/subject.jpg" }, meta: { role: "reference_image" } },
+    { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" }, meta: { role: "reference_audio" } },
+  ],
+});
+```
+
 Kling exposes stable capability model ids while the adapter sends the latest upstream `model_name` for each capability:
 
 ```ts

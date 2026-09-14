@@ -157,6 +157,37 @@ function seedanceVideoParameters(defaults: { resolution: string; resolutions?: s
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
+const seedanceContentInput = [
+  { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+  {
+    type: "image",
+    required: false,
+    max: 9,
+    sources: ["url"],
+    roles: ["first_frame", "last_frame", "reference_image"],
+    description: "Optional public URL image input. Use meta.role as first_frame, last_frame, or reference_image.",
+  },
+  {
+    type: "video",
+    required: false,
+    max: 1,
+    sources: ["url"],
+    roles: ["reference_video"],
+    roleRequired: true,
+    description: "Optional public URL reference video input. Use meta.role as reference_video.",
+  },
+  {
+    type: "audio",
+    required: false,
+    max: 3,
+    sources: ["url"],
+    roles: ["reference_audio"],
+    roleRequired: true,
+    description:
+      "Optional public URL reference audio. Use meta.role reference_audio. Audio cannot be the only media input; include at least one image or video.",
+  },
+] satisfies GenerationModelDeclaration["content"]["input"];
+
 const minimaxH3ContentInput = [
   { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
   {
@@ -1290,30 +1321,9 @@ const builtinModels = [
     title: "Seedance 2.0",
     category: "video",
     description:
-      "High-quality video generation model that accepts text, image, and video inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.",
+      "High-quality video generation model that accepts text, image, video, and audio inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.",
     adapter: { type: "ark.videoGenerations" },
-    content: {
-      input: [
-        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
-        {
-          type: "image",
-          required: false,
-          max: 9,
-          sources: ["url"],
-          roles: ["first_frame", "last_frame", "reference_image"],
-          description: "Optional public URL image input. Use meta.role as first_frame, last_frame, or reference_image.",
-        },
-        {
-          type: "video",
-          required: false,
-          max: 1,
-          sources: ["url"],
-          roles: ["reference_video"],
-          roleRequired: true,
-          description: "Optional public URL reference video input. Use meta.role as reference_video.",
-        },
-      ],
-    },
+    content: { input: seedanceContentInput },
     parameters: seedanceVideoParameters({ resolution: "1080p", maxWait: 900 }),
     examples: [
       {
@@ -1337,30 +1347,9 @@ const builtinModels = [
     title: "Seedance 2.0 Fast",
     category: "video",
     description:
-      "Fast video generation model that accepts text, image, and video inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.",
+      "Fast video generation model that accepts text, image, video, and audio inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.",
     adapter: { type: "ark.videoGenerations" },
-    content: {
-      input: [
-        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
-        {
-          type: "image",
-          required: false,
-          max: 9,
-          sources: ["url"],
-          roles: ["first_frame", "last_frame", "reference_image"],
-          description: "Optional public URL image input. Use meta.role as first_frame, last_frame, or reference_image.",
-        },
-        {
-          type: "video",
-          required: false,
-          max: 1,
-          sources: ["url"],
-          roles: ["reference_video"],
-          roleRequired: true,
-          description: "Optional public URL reference video input. Use meta.role as reference_video.",
-        },
-      ],
-    },
+    content: { input: seedanceContentInput },
     parameters: seedanceVideoParameters({ resolution: "720p", resolutions: ["480p", "720p"], maxWait: 600 }),
     examples: [
       {
