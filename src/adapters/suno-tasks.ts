@@ -147,7 +147,16 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
   const config = OPERATION_PATHS[operation];
 
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
-  if (prompt && config?.textField && payload[config.textField] === undefined) payload[config.textField] = prompt;
+  const descriptionMode = operation === "music" && input.declaration.model === "suno_music_chirp_fenix";
+  if (descriptionMode && prompt && payload.gpt_description_prompt === undefined) {
+    payload.gpt_description_prompt = prompt;
+  }
+  if (descriptionMode && payload.lyrics !== undefined) {
+    if (payload.prompt === undefined) payload.prompt = payload.lyrics;
+    delete payload.lyrics;
+  } else if (prompt && config?.textField && payload[config.textField] === undefined && !descriptionMode) {
+    payload[config.textField] = prompt;
+  }
   const audioBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "audio" }> => block.type === "audio",
   );
