@@ -183,6 +183,7 @@ const client = createGenerationClient({
 - `minimax-h3-unrestricted`
 - `seedance-2-0`
 - `seedance-2-0-fast`
+- `seedance-2-5`
 - `suno_music_chirp_fenix`
 - `noobxl-t2i-onediff`
 - `noobxl-i2i-ipa-onediff`

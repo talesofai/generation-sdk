@@ -43,6 +43,7 @@ describe("config", () => {
         "minimax-h3-unrestricted",
         "seedance-2-0",
         "seedance-2-0-fast",
+        "seedance-2-5",
         "video-upscale-native",
       ],
       audio: ["suno_music_chirp_fenix"],
@@ -415,7 +416,7 @@ describe("config", () => {
 
   it("uses ratio as the only Seedance aspect-ratio parameter", () => {
     const client = createGenerationClient({ apiKey: "test" });
-    for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
+    for (const model of ["seedance-2-0", "seedance-2-0-fast", "seedance-2-5"]) {
       expect(client.getModel(model)?.parameters).toHaveProperty("ratio");
       expect(client.getModel(model)?.parameters).not.toHaveProperty("aspect_ratio");
     }
@@ -423,7 +424,7 @@ describe("config", () => {
 
   it("keeps provider-managed Seedance parameters internal", () => {
     const client = createGenerationClient({ apiKey: "test" });
-    for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
+    for (const model of ["seedance-2-0", "seedance-2-0-fast", "seedance-2-5"]) {
       for (const parameter of ["fps", "generate_audio", "return_last_frame", "watermark"]) {
         expect(client.getModel(model)?.parameters).not.toHaveProperty(parameter);
       }
@@ -466,6 +467,28 @@ describe("config", () => {
       default: "720p",
       enum: ["480p", "720p"],
     });
+    expect(client.getModel("seedance-2-5")?.parameters?.resolution).toMatchObject({
+      default: "1080p",
+      enum: ["480p", "720p", "1080p"],
+    });
+    expect(client.getModel("seedance-2-0")?.pricing).toEqual({
+      unit: "1m_tokens",
+      min: 2.4,
+      max: 7.7,
+      note: "BytePlus list USD; varies by resolution and video input",
+    });
+    expect(client.getModel("seedance-2-0-fast")?.pricing).toEqual({
+      unit: "1m_tokens",
+      min: 3.3,
+      max: 5.6,
+      note: "BytePlus list USD; varies by resolution and video input",
+    });
+    expect(client.getModel("seedance-2-5")?.pricing).toEqual({
+      unit: "1m_tokens",
+      min: 6.4,
+      max: 11.7,
+      note: "BytePlus list USD; varies by resolution and video input",
+    });
     expect(() =>
       client.validate({
         model: "seedance-2-0-fast",
@@ -473,6 +496,13 @@ describe("config", () => {
         parameters: { resolution: "1080p" },
       }),
     ).toThrow("Parameter resolution must be one of: 480p, 720p");
+    expect(() =>
+      client.validate({
+        model: "seedance-2-5",
+        content: [{ type: "text", text: "a quick motion study" }],
+        parameters: { resolution: "2K" },
+      }),
+    ).toThrow("Parameter resolution must be one of: 480p, 720p, 1080p");
   });
 
   it("publishes the supported NoobXL image sizes", () => {
