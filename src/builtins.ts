@@ -1,6 +1,12 @@
-import type { GenerationModelDeclaration } from "./types.js";
+import type { GenerationModelDeclaration, GenerationModelPricing } from "./types.js";
 import { MODEL_SCHEMA } from "./types.js";
 import { cloneJson } from "./utils.js";
+
+const seedanceListPriceNote = "BytePlus list USD; varies by resolution and video input";
+
+function seedanceTokenPricing(min: number, max: number): GenerationModelPricing {
+  return { unit: "1m_tokens", min, max, note: seedanceListPriceNote };
+}
 
 const imageSizeParameters = {
   size: {
@@ -1322,6 +1328,7 @@ const builtinModels = [
     category: "video",
     description:
       "High-quality video generation model that accepts text, image, video, and audio inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.",
+    pricing: seedanceTokenPricing(2.4, 7.7),
     adapter: { type: "ark.videoGenerations" },
     content: { input: seedanceContentInput },
     parameters: seedanceVideoParameters({ resolution: "1080p", maxWait: 900 }),
@@ -1348,6 +1355,7 @@ const builtinModels = [
     category: "video",
     description:
       "Fast video generation model that accepts text, image, video, and audio inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.",
+    pricing: seedanceTokenPricing(3.3, 5.6),
     adapter: { type: "ark.videoGenerations" },
     content: { input: seedanceContentInput },
     parameters: seedanceVideoParameters({ resolution: "720p", resolutions: ["480p", "720p"], maxWait: 600 }),
@@ -1363,6 +1371,37 @@ const builtinModels = [
             },
           ],
           parameters: { duration: 5, resolution: "720p", ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "seedance-2-5",
+    title: "Seedance 2.5",
+    category: "video",
+    description:
+      "Seedance 2.5 video generation with text, image, video, and audio inputs. Supports 480p to 1080p. Priced above Seedance 2.0 on BytePlus list USD; 4K is not offered.",
+    pricing: seedanceTokenPricing(6.4, 11.7),
+    adapter: { type: "ark.videoGenerations" },
+    content: { input: seedanceContentInput },
+    parameters: seedanceVideoParameters({
+      resolution: "1080p",
+      resolutions: ["480p", "720p", "1080p"],
+      maxWait: 900,
+    }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "seedance-2-5",
+          content: [
+            {
+              type: "text",
+              text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
+            },
+          ],
+          parameters: { duration: 5, resolution: "1080p", ratio: "16:9" },
         },
       },
     ],
