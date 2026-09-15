@@ -93,7 +93,7 @@ describe("suno.tasks adapter", () => {
     expect(calls[0]?.url).toBe("https://router.neta.art/suno/submit/music");
     expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
       mv: "chirp-fenix",
-      prompt: "warm piano",
+      gpt_description_prompt: "warm piano",
       title: "Warm Horizon",
     });
     expect(calls[1]?.url).toBe("https://router.neta.art/suno/fetch/task_1");

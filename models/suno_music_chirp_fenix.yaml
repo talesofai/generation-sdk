@@ -44,6 +44,10 @@ meta:
       type: string
       optional: true
       description: Suno inspiration-mode prompt.
+    lyrics:
+      type: string
+      optional: true
+      description: Explicit lyrics; omit to let Suno write lyrics from the prompt.
     negative_tags:
       type: string
       optional: true

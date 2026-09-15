@@ -489,6 +489,7 @@ function sunoVersionModel(version: (typeof sunoVersions)[number]): GenerationMod
     parameters: sunoTaskParameters,
     meta: {
       fields: sunoCommonMetaFields,
+      ...(version.model === "suno_music_chirp_fenix" ? { fields: { ...sunoCommonMetaFields, lyrics: { type: "string", optional: true, description: "Explicit lyrics; omit to let Suno write lyrics from the prompt." } } } : {}),
     },
     ...(version.model === "suno_music_chirp_fenix" ? { examples: [sunoMusicExample] } : {}),
   };
