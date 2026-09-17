@@ -365,4 +365,66 @@ describe("ark.videoGenerations adapter", () => {
     await promise;
     vi.useRealTimers();
   });
+
+  it("retries a poll GET after a connect timeout", async () => {
+    vi.useFakeTimers();
+    let pollGets = 0;
+    const fetchMock = async (_url: string | URL | Request, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
+      }
+      pollGets += 1;
+      if (pollGets === 1) {
+        const error = new Error("fetch failed");
+        (error as Error & { cause: { name: string; code: string } }).cause = {
+          name: "ConnectTimeoutError",
+          code: "UND_ERR_CONNECT_TIMEOUT",
+        };
+        throw error;
+      }
+      return new Response(JSON.stringify({ data: { status: "SUCCESS", result_url: "https://example.com/out.mp4" } }), {
+        status: 200,
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "seedance-2-0-fast",
+      content: [{ type: "text", text: "hello" }],
+      parameters: { poll_interval: 1, max_wait: 30 },
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+    const output = await promise;
+    vi.useRealTimers();
+
+    expect(pollGets).toBe(2);
+    expect(output[0]).toMatchObject({
+      type: "video",
+      source: { type: "url", url: "https://example.com/out.mp4" },
+    });
+  });
+
+  it("does not retry a 400 poll response", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (_url: string | URL | Request, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
+      }
+      return new Response("copyright", { status: 400 });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "seedance-2-0-fast",
+      content: [{ type: "text", text: "hello" }],
+      parameters: { poll_interval: 1, max_wait: 30 },
+    });
+    const expectation = expect(promise).rejects.toMatchObject({
+      name: "GenerationProviderError",
+      status: 400,
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await expectation;
+    vi.useRealTimers();
+  });
 });

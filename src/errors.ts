@@ -74,6 +74,13 @@ export class GenerationTimeoutError extends GenerationProviderError {
   }
 }
 
+/** Transient poll failures: keep waiting instead of failing the whole task. Do not retry submit. */
+export function isRetryablePollError(error: unknown): boolean {
+  if (error instanceof GenerationTransportError) return true;
+  if (error instanceof GenerationTimeoutError) return false;
+  return error instanceof GenerationProviderError && error.status != null && error.status >= 500;
+}
+
 function transportErrorMessage(details: GenerationTransportErrorDetails): string {
   return [
     "Generation transport failed",

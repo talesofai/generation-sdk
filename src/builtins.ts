@@ -1400,7 +1400,7 @@ const builtinModels = [
     parameters: seedanceVideoParameters({
       resolution: "1080p",
       resolutions: ["480p", "720p", "1080p"],
-      maxWait: 900,
+      maxWait: 1300,
     }),
     examples: [
       {

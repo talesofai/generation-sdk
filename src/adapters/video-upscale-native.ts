@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import { taskPollTicks } from "../task-poll.js";
+import { taskPollTicks, tryPollRequest } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactObject } from "../utils.js";
 
@@ -142,9 +142,13 @@ export async function videoUpscaleNativeAdapter(input: GenerationAdapterInput): 
   const taskId = extractTaskId(task);
 
   for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
-    const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
-      method: "GET",
-    })) as TaskResponse;
+    const rawStatus = await tryPollRequest(
+      () =>
+        requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
+          method: "GET",
+        }) as Promise<TaskResponse>,
+    );
+    if (rawStatus === undefined) continue;
     const status = extractTaskStatus(rawStatus);
 
     if (status.status === "succeeded") {

@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import { taskPollTicks } from "../task-poll.js";
+import { taskPollTicks, tryPollRequest } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -358,9 +358,13 @@ export async function klingVideoGenerationsAdapter(input: GenerationAdapterInput
   const maxWaitSec = asInteger(input.parameters.max_wait, DEFAULT_MAX_WAIT_SEC);
 
   for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
-    const rawStatus = (await requestJson(input, `${model.submitPath}/${encodeURIComponent(taskId)}`, {
-      method: "GET",
-    })) as TaskStatusResponse;
+    const rawStatus = await tryPollRequest(
+      () =>
+        requestJson(input, `${model.submitPath}/${encodeURIComponent(taskId)}`, {
+          method: "GET",
+        }) as Promise<TaskStatusResponse>,
+    );
+    if (rawStatus === undefined) continue;
     const status = extractStatus(rawStatus);
 
     if (status.status === "succeeded") {
