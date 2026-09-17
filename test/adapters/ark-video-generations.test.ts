@@ -48,6 +48,7 @@ async function expectVideoGenerationValidationError(content: GenerationContentBl
 async function runSuccessfulVideoGeneration(
   content: GenerationContentBlock[],
   parameters: Record<string, unknown> = {},
+  model = "seedance-2-0-fast",
 ) {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
@@ -64,7 +65,7 @@ async function runSuccessfulVideoGeneration(
   try {
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "seedance-2-0-fast",
+      model,
       content,
       parameters: { poll_interval: 1, max_wait: 30, ...parameters },
     });
@@ -364,5 +365,63 @@ describe("ark.videoGenerations adapter", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await promise;
     vi.useRealTimers();
+  });
+
+  it("rejects Seedance 2.5 first-frame tasks that set a fixed ratio", async () => {
+    const client = createGenerationClient({
+      apiKey: "key",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+    });
+
+    await expect(
+      client.generate({
+        model: "seedance-2-5",
+        content: [textBlock("animate the still"), imageBlock("https://example.com/first.jpg", { role: "first_frame" })],
+        parameters: { ratio: "9:16" },
+      }),
+    ).rejects.toThrow('Seedance 2.5 first/last-frame tasks require ratio=adaptive, got "9:16"');
+  });
+
+  it("defaults Seedance 2.5 first-frame ratio to adaptive", async () => {
+    const { calls } = await runSuccessfulVideoGeneration(
+      [textBlock("animate the still"), imageBlock("https://example.com/first.jpg", { role: "first_frame" })],
+      {},
+      "seedance-2-5",
+    );
+    const metadata = parseCreateBody(calls).metadata as Record<string, unknown>;
+    expect(metadata.ratio).toBe("adaptive");
+  });
+
+  it("still allows Seedance 2.5 text-to-video to use a fixed ratio", async () => {
+    const { calls } = await runSuccessfulVideoGeneration(
+      [textBlock("a vertical shot of rain on a window")],
+      { ratio: "9:16" },
+      "seedance-2-5",
+    );
+    const metadata = parseCreateBody(calls).metadata as Record<string, unknown>;
+    expect(metadata.ratio).toBe("9:16");
+  });
+
+  it("rejects Seedance 2.5 edit tasks that set a fixed ratio", async () => {
+    const client = createGenerationClient({
+      apiKey: "key",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+    });
+
+    await expect(
+      client.generate({
+        model: "seedance-2-5",
+        content: [
+          textBlock("turn the clip into night rain"),
+          videoBlock("https://example.com/source.mp4", { role: "reference_video" }),
+        ],
+        parameters: { ratio: "16:9" },
+        meta: { omni_reference_task_type: "edit" },
+      }),
+    ).rejects.toThrow('Seedance 2.5 edit tasks require ratio=adaptive, got "16:9"');
   });
 });

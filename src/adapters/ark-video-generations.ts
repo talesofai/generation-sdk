@@ -55,6 +55,45 @@ function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
+function isSeedance25Model(model: string): boolean {
+  return /seedance[-_.]?2[-_.]?5/i.test(model);
+}
+
+function seedance25LockedRatioKind(
+  mode: MediaMode | null,
+  parameters: Record<string, unknown>,
+  requestParameters: Record<string, unknown> | undefined,
+  meta: Record<string, unknown>,
+): "first/last-frame" | "edit" | "extend" | null {
+  if (mode === "frame") return "first/last-frame";
+  const taskType =
+    asString(requestParameters?.omni_reference_task_type) ??
+    asString(parameters.omni_reference_task_type) ??
+    asString(meta.omni_reference_task_type) ??
+    asString(requestParameters?.task_type) ??
+    asString(parameters.task_type) ??
+    asString(meta.task_type);
+  if (taskType === "edit") return "edit";
+  if (taskType === "extend") return "extend";
+  return null;
+}
+
+function resolveRatio(
+  model: string,
+  mode: MediaMode | null,
+  parameters: Record<string, unknown>,
+  requestParameters: Record<string, unknown> | undefined,
+  meta: Record<string, unknown>,
+): string {
+  const requested = asString(requestParameters?.ratio);
+  const locked = isSeedance25Model(model) ? seedance25LockedRatioKind(mode, parameters, requestParameters, meta) : null;
+  if (!locked) return requested ?? asString(parameters.ratio) ?? "16:9";
+  if (requested !== undefined && requested !== "adaptive") {
+    throw new GenerationValidationError(`Seedance 2.5 ${locked} tasks require ratio=adaptive, got "${requested}"`);
+  }
+  return "adaptive";
+}
+
 function normalizeStatus(value: string): string {
   const status = value.toLowerCase();
   return status === "success" ? "succeeded" : status;
@@ -277,11 +316,11 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   validateAudioInputs(audioInput, visualInput);
 
   const mode = classifyMedia(visualInput);
+  const ratio = resolveRatio(input.declaration.model, mode, input.parameters, input.request.parameters, input.meta);
   const media = await resolveMedia(input, inputMedia);
   const visual = media.filter(isVisualResolved);
   const audio = media.filter((item) => item.kind === "audio");
   const resolution = asString(input.parameters.resolution) ?? "720p";
-  const ratio = asString(input.request.parameters?.ratio) ?? asString(input.parameters.ratio) ?? "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);
   const fps = getIntegerParameter(input.parameters, "fps", 24);
   const pollIntervalSec = getIntegerParameter(input.parameters, "poll_interval", DEFAULT_POLL_INTERVAL_SEC);
