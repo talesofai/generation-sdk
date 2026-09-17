@@ -85,7 +85,7 @@ parameters:
   max_wait:
     type: integer
     optional: true
-    default: 900
+    default: 1300
     min: 30
     max: 1800
     description: Maximum seconds to wait for task completion.

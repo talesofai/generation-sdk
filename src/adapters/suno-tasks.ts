@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import { taskPollTicks } from "../task-poll.js";
+import { taskPollTicks, tryPollRequest } from "../task-poll.js";
 import type {
   GenerationAdapterInput,
   GenerationContentBlock,
@@ -419,13 +419,10 @@ async function pollSunoTask(
   maxWaitSec: number,
 ): Promise<GenerationContentBlock[]> {
   for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
-    let raw: TaskResponse;
-    try {
-      raw = await requestJson(input, `/suno/fetch/${encodeURIComponent(taskId)}`, { method: "GET" });
-    } catch (error) {
-      if (error instanceof GenerationProviderError) throw error;
-      continue;
-    }
+    const raw = await tryPollRequest(() =>
+      requestJson(input, `/suno/fetch/${encodeURIComponent(taskId)}`, { method: "GET" }),
+    );
+    if (raw === undefined) continue;
     const data = requireSuccess(raw, "Suno task fetch failed");
     const task = normalizeTask(operation, data);
     if (!task) throw new GenerationProviderError("Suno task fetch returned invalid task data", { details: { data } });

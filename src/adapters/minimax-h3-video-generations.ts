@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import { taskPollTicks } from "../task-poll.js";
+import { taskPollTicks, tryPollRequest } from "../task-poll.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -284,9 +284,13 @@ export async function minimaxH3VideoGenerationsAdapter(
   const taskId = extractTaskId(task);
 
   for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
-    const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
-      method: "GET",
-    })) as H3TaskResponse;
+    const rawStatus = await tryPollRequest(
+      () =>
+        requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
+          method: "GET",
+        }) as Promise<H3TaskResponse>,
+    );
+    if (rawStatus === undefined) continue;
     const status = extractTaskStatus(rawStatus);
 
     if (status.status === "succeeded") {
