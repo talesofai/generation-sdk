@@ -533,7 +533,13 @@ describe("config", () => {
     ]) {
       expect(client.stringifyModelConfig(model)).not.toContain("preview_text");
     }
-    expect(await readFile(join(process.cwd(), "README.md"), "utf8")).not.toContain("preview_text");
+    // Prose may explain (for implementers) that preview_text is a deprecated,
+    // never-forwarded field — that's not the same as telling a caller to use
+    // it. What must never happen is a copy-pasteable code example showing
+    // preview_text as something to send.
+    const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
+    const codeBlocks = readme.match(/```ts\n[\s\S]*?\n```/g) ?? [];
+    for (const block of codeBlocks) expect(block).not.toContain("preview_text");
   });
 
   it("validates every built-in model example", () => {

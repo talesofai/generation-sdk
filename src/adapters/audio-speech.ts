@@ -93,6 +93,11 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   if (voicePrompt !== undefined && !hasVoicePrompt) {
     throw new GenerationValidationError(`${input.declaration.model} meta.voice_prompt must be a non-empty string`);
   }
+  // Length checks below (here and on `text`) count trimmed code points, matching
+  // the worker's own bounds, but buildPayload sends the untrimmed original string
+  // (deliberate — see the wire-contract preservation tests). A value that's exactly
+  // at a cap plus surrounding whitespace can therefore pass here and still get
+  // rejected downstream: a narrow, known gap, not a correctness bug in either layer.
   if (hasVoicePrompt && Array.from(voicePrompt.trim()).length > VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS) {
     throw new GenerationValidationError(
       `${input.declaration.model} meta.voice_prompt must be at most ${VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS} Unicode code points`,

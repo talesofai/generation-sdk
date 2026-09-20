@@ -288,6 +288,13 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 > of this model family). A caller doing a plain model-name swap on short input will start seeing
 > `GenerationValidationError` where it previously succeeded — pad short inputs or catch the error.
 
+> **Server-side wire contract:** this SDK talks to the router over HTTP; it does not call the DashScope-facing
+> worker (`talesofai/background`'s `qwen_tts_actor`) directly, and as of 2026-09-20 nothing in the pipeline
+> between them performs the translation yet. For whoever builds that glue: the worker's `preview_text` is this
+> request's primary `text` content block (same value, same 15/200 bound — not the SDK's separate, deprecated,
+> never-forwarded `meta.preview_text`), and the worker's `voice_prompt`/`target_model` are this request's
+> `meta.voice_prompt`/`model` unchanged.
+
 ```ts
 await client.generate({
   model: "cosyvoice-v3.5-flash",
