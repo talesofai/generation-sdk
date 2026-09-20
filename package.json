@@ -64,11 +64,13 @@
     "prepublishOnly": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
+    "ws": "^8.18.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.1",
     "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
     "tsdown": "^0.15.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"

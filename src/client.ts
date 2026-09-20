@@ -9,6 +9,7 @@ import {
 } from "./config.js";
 import { GenerationConfigError } from "./errors.js";
 import { createDebugFetch } from "./http.js";
+import { connectRealtime } from "./realtime.js";
 import {
   extractGenerationResultFields,
   extractGenerationResultHeaderFields,
@@ -17,6 +18,7 @@ import {
 } from "./response-fields.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
+  ConnectRealtimeOptions,
   CreateGenerationClientOptions,
   GenerateRequest,
   GenerationClient,
@@ -213,6 +215,17 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       });
       const content = await runAdapter(request, captureFetch);
       return { content, ...(capturedFields ?? {}) };
+    },
+
+    connectRealtime(model: string, realtimeOptions: ConnectRealtimeOptions = {}) {
+      const apiKey = realtimeOptions.apiKey ?? options.apiKey;
+      const baseUrl = realtimeOptions.baseUrl ?? options.baseUrl;
+      return connectRealtime(model, {
+        ...(apiKey !== undefined ? { apiKey } : {}),
+        ...(baseUrl !== undefined ? { baseUrl } : {}),
+        ...(realtimeOptions.query !== undefined ? { query: realtimeOptions.query } : {}),
+        ...(realtimeOptions.headers !== undefined ? { headers: realtimeOptions.headers } : {}),
+      });
     },
 
     listModels() {
