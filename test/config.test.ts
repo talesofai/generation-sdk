@@ -538,7 +538,8 @@ describe("config", () => {
     // it. What must never happen is a copy-pasteable code example showing
     // preview_text as something to send.
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
-    const codeBlocks = readme.match(/```ts\n[\s\S]*?\n```/g) ?? [];
+    const codeBlocks = readme.match(/```[a-z]*\r?\n[\s\S]*?\r?\n```/g) ?? [];
+    expect(codeBlocks.length).toBeGreaterThan(0);
     for (const block of codeBlocks) expect(block).not.toContain("preview_text");
   });
 

@@ -290,10 +290,12 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 > **Server-side wire contract:** this SDK talks to the router over HTTP; it does not call the DashScope-facing
 > worker (`talesofai/background`'s `qwen_tts_actor`) directly, and as of 2026-09-20 nothing in the pipeline
-> between them performs the translation yet. For whoever builds that glue: the worker's `preview_text` is this
-> request's primary `text` content block (same value, same 15/200 bound — not the SDK's separate, deprecated,
-> never-forwarded `meta.preview_text`), and the worker's `voice_prompt`/`target_model` are this request's
-> `meta.voice_prompt`/`model` unchanged.
+> between them performs the translation yet. For whoever builds that glue, per the worker's own field names
+> (see its module docstring — they do **not** match DashScope's or this SDK's field names one-for-one, which is
+> the trap to avoid): the worker's `preview_text` (what's actually spoken, required on every request) is this
+> request's primary `text` content block; the worker's `text` field (the voice STYLE description, design mode
+> only — unrelated to this SDK's own `input`/text-content naming despite the shared word) is this request's
+> `meta.voice_prompt`; `target_model` is this request's `model`, unchanged.
 
 ```ts
 await client.generate({
