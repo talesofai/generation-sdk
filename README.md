@@ -281,6 +281,13 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 - Dependency: clone prior generated audio.
 - Ranking: no declared CosyVoice / Qwen quality, latency, or cost order.
 
+> **Migrating from `qwen-tts` (removed in 0.2.0):** DashScope retires `qwen-tts` on 2026-10-10; this SDK removed
+> the declaration in the same release. Switch to `cosyvoice-v3.5-flash` (or `-plus`) — same request shape
+> (`voice_prompt` design OR one-reference clone), but `qwen-tts` accepted text of **any length** while
+> `cosyvoice-v3.5-*` requires **at least 15 Unicode code points** (and at most 200 in design mode, like the rest
+> of this model family). A caller doing a plain model-name swap on short input will start seeing
+> `GenerationValidationError` where it previously succeeded — pad short inputs or catch the error.
+
 ```ts
 await client.generate({
   model: "cosyvoice-v3.5-flash",

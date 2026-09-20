@@ -309,6 +309,36 @@ describe("openai.audioSpeech adapter validation", () => {
     expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).not.toThrow();
   });
 
+  it.each([
+    { model: "cosyvoice-v3.5-plus", voice_prompt: "a".repeat(501) },
+    { model: "cosyvoice-v3.5-flash", voice_prompt: "😀".repeat(501) },
+    { model: "qwen-audio-3.0-tts-plus", voice_prompt: "a".repeat(501) },
+    { model: "qwen-audio-3.0-tts-flash", voice_prompt: "😀".repeat(501) },
+  ])("rejects $model meta.voice_prompt above 500 Unicode code points", ({ model, voice_prompt }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate({
+        model,
+        content: [{ type: "text", text: "这是一段长度足够的语音设计试听文本。" }],
+        meta: { voice_prompt },
+      }),
+    ).toThrow("meta.voice_prompt must be at most 500 Unicode code points");
+  });
+
+  it.each([
+    { model: "cosyvoice-v3.5-plus", voice_prompt: "a".repeat(500) },
+    { model: "cosyvoice-v3.5-flash", voice_prompt: "😀".repeat(500) },
+  ])("accepts $model meta.voice_prompt at the 500 Unicode code point boundary", ({ model, voice_prompt }) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate({
+        model,
+        content: [{ type: "text", text: "这是一段长度足够的语音设计试听文本。" }],
+        meta: { voice_prompt },
+      }),
+    ).not.toThrow();
+  });
+
   it.each<{ label: string; request: GenerateRequest }>([
     { label: "request typo", request: designRequest({ meta: { voice_promt: "拼错" } }) },
     {

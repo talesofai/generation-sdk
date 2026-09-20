@@ -15,6 +15,7 @@ const VOICE_ENROLLMENT_MODELS = new Set([
   "qwen-audio-3.0-tts-flash",
 ]);
 const VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS = 200;
+const VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS = 500;
 const HIGGS_MODEL = "higgs-tts";
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
@@ -76,7 +77,11 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   if (audio.length > 1) {
     throw new GenerationValidationError(`${input.declaration.model} supports at most one reference audio`);
   }
-  // Keep accepting the retired preview_text key for compatibility, but never use or forward it.
+  // Keep accepting the retired preview_text key for compatibility, but never use or forward it:
+  // the text spoken in the preview/output clip is this request's primary `text` content block
+  // (validated below against the same 15-200 code point window the worker enforces on its own
+  // `preview_text` field downstream), not a separate meta value. `preview_text` was how older
+  // callers passed that text directly; treat any value here as a no-op alias, not live input.
   const requestMetaKeys = new Set(["voice_prompt", "preview_text"]);
   validateMetaKeys("request.metadata", input.request.metadata, requestMetaKeys);
   validateMetaKeys("request.meta", input.request.meta, requestMetaKeys);
@@ -87,6 +92,11 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   const hasVoicePrompt = typeof voicePrompt === "string" && voicePrompt.trim().length > 0;
   if (voicePrompt !== undefined && !hasVoicePrompt) {
     throw new GenerationValidationError(`${input.declaration.model} meta.voice_prompt must be a non-empty string`);
+  }
+  if (hasVoicePrompt && Array.from(voicePrompt.trim()).length > VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} meta.voice_prompt must be at most ${VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS} Unicode code points`,
+    );
   }
   if (audio.length === 0 && !hasVoicePrompt) {
     throw new GenerationValidationError(`${input.declaration.model} requires one reference audio or meta.voice_prompt`);
@@ -104,7 +114,7 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   // Voice design speaks exactly this text as the preview clip, so the model's
   // 15-200 character preview window applies; cloning only feeds the separate
   // synthesis call, where long-form text is legitimate.
-  if (audio.length === 0 && codePoints > VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS) {
+  if (hasVoicePrompt && codePoints > VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS) {
     throw new GenerationValidationError(
       `${input.declaration.model} voice design requires input of at most ${VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS} Unicode code points`,
     );
