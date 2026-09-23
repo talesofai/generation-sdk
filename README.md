@@ -62,13 +62,13 @@ Agents and external tools should inspect a model declaration before constructing
 import { createGenerationClient } from "@neta-art/generation";
 
 const discoveryClient = createGenerationClient();
-const declaration = discoveryClient.getModel("qwen-tts");
+const declaration = discoveryClient.getModel("qwen3-tts-vc-2026-01-22");
 if (!declaration) throw new Error("Model is unavailable");
 
 console.log(discoveryClient.stringifyModelConfig(declaration.model, { format: "json" }));
 
-const request = declaration.examples?.find((example) => example.title === "Voice design")?.request;
-if (!request) throw new Error("Voice-design example is unavailable");
+const request = declaration.examples?.find((example) => example.title === "Voice clone")?.request;
+if (!request) throw new Error("Voice-clone example is unavailable");
 
 // Discovery and validation do not require an API key or access the network.
 discoveryClient.validate(request);
@@ -84,7 +84,7 @@ The same declarations can be exported as YAML through the existing CLI:
 
 ```bash
 neta-generation models list
-neta-generation models export qwen-tts --out ./qwen-tts.yaml
+neta-generation models export qwen3-tts-vc-2026-01-22 --out ./qwen3-tts-vc-2026-01-22.yaml
 neta-generation models export-all --out ./models
 ```
 
@@ -170,7 +170,7 @@ const client = createGenerationClient({
 - `gpt-image-2`
 - `z-image-turbo`
 - `qwen-image-edit`
-- `qwen-tts`
+- `qwen3-tts-vc-2026-01-22`
 - `qwen-audio-3.0-tts-plus`
 - `qwen-audio-3.0-tts-flash`
 - `higgs-tts`
@@ -268,12 +268,14 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 | Requirement | Model choice |
 | --- | --- |
-| Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
+| Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-audio-3.0-tts-plus` as the deterministic default |
+| Clone one reference voice on DashScope's long-term-supported model line | `qwen3-tts-vc-2026-01-22` |
 | Maximize fidelity to one reference voice | `higgs-tts` |
 | Blend 2-16 weighted reference voices | `higgs-tts` |
 | Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `higgs-tts` |
 
-- Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
+- Qwen (`qwen-audio-3.0-tts-plus`/`-flash`): `voice_prompt` design OR one-reference clone; require at least 15 Unicode code points.
+- Qwen3-TTS (`qwen3-tts-vc-2026-01-22`): clone-only, no `voice_prompt` design mode; reference audio is required; accepts any text length.
 - Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
 - Conflict: reference + redesign requires user choice before generation.
 - Blend: all references, full text, one request.
@@ -282,8 +284,8 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 ```ts
 await client.generate({
-  model: "qwen-tts",
-  content: [{ type: "text", text: "欢迎使用语音合成功能。" }],
+  model: "qwen-audio-3.0-tts-plus",
+  content: [{ type: "text", text: "欢迎使用长度足够的语音合成功能进行试听。" }],
   meta: {
     voice_prompt: "一位沉稳自然的中文播音员，吐字清晰，语速适中",
   },
@@ -293,6 +295,14 @@ await client.generate({
   model: "qwen-audio-3.0-tts-flash",
   content: [
     { type: "text", text: "这是一段长度足够并且表达清晰自然的语音合成文本。" },
+    { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+  ],
+});
+
+await client.generate({
+  model: "qwen3-tts-vc-2026-01-22",
+  content: [
+    { type: "text", text: "欢迎使用语音合成功能。" },
     { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
   ],
 });

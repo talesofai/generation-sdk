@@ -69,7 +69,7 @@ describe("config", () => {
     expect(byCategory.audio.sort()).toEqual([...expected.audio]);
     for (const model of [
       "higgs-tts",
-      "qwen-tts",
+      "qwen3-tts-vc-2026-01-22",
       "qwen-audio-3.0-tts-plus",
       "qwen-audio-3.0-tts-flash",
       "suno_cover_chirp_v5",
@@ -207,6 +207,21 @@ describe("config", () => {
     expect(() => client.stringifyModelConfig("suno_music")).toThrow("Generation model is unavailable: suno_music");
   });
 
+  it("does not expose the retired qwen-tts model", () => {
+    // qwen-tts is DashScope's own retirement (2026-10-10); qwen3-tts-vc-2026-01-22
+    // replaces it as the long-term-supported clone model. qwen-audio-3.0-tts-plus/flash
+    // are unaffected by this migration and stay published as-is.
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("qwen-tts")).toBeNull();
+    expect(() =>
+      client.validate({
+        model: "qwen-tts",
+        content: [{ type: "text", text: "这是一段有效的语音试听文本。" }],
+      }),
+    ).toThrow("Generation model is unavailable: qwen-tts");
+    expect(() => client.stringifyModelConfig("qwen-tts")).toThrow("Generation model is unavailable: qwen-tts");
+  });
+
   it("keeps infrastructure names out of model descriptions", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {
@@ -216,7 +231,7 @@ describe("config", () => {
 
   it("publishes agent-discoverable audio speech declarations", () => {
     const client = createGenerationClient();
-    const qwenModels = ["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"];
+    const qwenModels = ["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"];
 
     for (const model of qwenModels) {
       const declaration = client.getModel(model);
@@ -236,12 +251,18 @@ describe("config", () => {
       expect(JSON.parse(client.stringifyModelConfig(model, { format: "json" }))).toEqual(declaration);
     }
 
-    const qwen = client.getModel("qwen-tts");
-    expect(qwen?.description).toBe(
-      "Modes: voice_prompt design OR one-reference clone. Default: unspecified Qwen design. Text: any length. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    const qwen3Clone = client.getModel("qwen3-tts-vc-2026-01-22");
+    expect(qwen3Clone?.description).toBe(
+      "Clone-only: requires exactly one reference audio; no voice-design mode. Text: any length. Conflict: N/A, single mode. Dependency: clone prior generated audio.",
     );
-    expect(qwen?.content.input.find((input) => input.type === "text")?.description).not.toContain(
+    expect(qwen3Clone?.content.input.find((input) => input.type === "text")?.description).not.toContain(
       "Unicode code points",
+    );
+    expect(qwen3Clone?.content.input.find((input) => input.type === "audio")?.required).toBe(true);
+    expect(qwen3Clone?.meta?.fields?.voice_prompt).toBeUndefined();
+    expect(qwen3Clone?.examples?.map((example) => example.title)).toEqual(["Voice clone"]);
+    expect(JSON.parse(client.stringifyModelConfig("qwen3-tts-vc-2026-01-22", { format: "json" }))).toEqual(
+      qwen3Clone,
     );
 
     const plus = client.getModel("qwen-audio-3.0-tts-plus");
@@ -287,7 +308,8 @@ describe("config", () => {
     expect(Object.keys(packageJson.exports ?? {})).toEqual([".", "./models"]);
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     expect(readme).not.toContain("@neta-art/generation/models/");
-    expect(readme).toContain("Qwen: `voice_prompt` design OR one-reference clone");
+    expect(readme).toContain("Qwen (`qwen-audio-3.0-tts-plus`/`-flash`): `voice_prompt` design OR one-reference clone");
+    expect(readme).toContain("Qwen3-TTS (`qwen3-tts-vc-2026-01-22`): clone-only, no `voice_prompt` design mode");
     expect(readme).toContain("Higgs: delegated default voice, high-fidelity one-reference clone");
     expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
     expect(readme).toContain("Blend: all references, full text, one request");
@@ -517,7 +539,7 @@ describe("config", () => {
 
   it("does not publish the retired Qwen preview field", async () => {
     const client = createGenerationClient({ apiKey: "test" });
-    for (const model of ["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]) {
+    for (const model of ["qwen3-tts-vc-2026-01-22", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]) {
       expect(client.stringifyModelConfig(model)).not.toContain("preview_text");
     }
     expect(await readFile(join(process.cwd(), "README.md"), "utf8")).not.toContain("preview_text");

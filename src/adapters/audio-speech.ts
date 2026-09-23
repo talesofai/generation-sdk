@@ -8,8 +8,14 @@ import type {
 } from "../types.js";
 
 const REQUEST_TIMEOUT_MS = 210_000;
-const QWEN_MODELS = new Set(["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
-const QWEN_AUDIO_3_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
+const QWEN_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
+const QWEN_MINIMUM_TEXT_CODE_POINTS = 15;
+// qwen3-tts-vc is clone-only -- DashScope's voice-design call shape doesn't
+// exist for this model family (see background/tasks/qwen_tts_actor.py's
+// module docstring), unlike QWEN_MODELS above, which supports design OR
+// clone through the same wire shape. It also has no minimum text length
+// (background's worker-side implementation enforces only non-empty).
+const QWEN3_TTS_CLONE_MODELS = new Set(["qwen3-tts-vc-2026-01-22"]);
 const HIGGS_MODEL = "higgs-tts";
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
@@ -92,8 +98,21 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
     );
   }
 
-  if (QWEN_AUDIO_3_MODELS.has(input.declaration.model) && Array.from(text.text.trim()).length < 15) {
-    throw new GenerationValidationError(`${input.declaration.model} requires input of at least 15 Unicode code points`);
+  if (Array.from(text.text.trim()).length < QWEN_MINIMUM_TEXT_CODE_POINTS) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} requires input of at least ${QWEN_MINIMUM_TEXT_CODE_POINTS} Unicode code points`,
+    );
+  }
+}
+
+function validateQwen3TtsClone(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {
+  validateMetaKeys("request.metadata", input.request.metadata, new Set());
+  validateMetaKeys("request.meta", input.request.meta, new Set());
+  validateMetaKeys("text content meta", text.meta, new Set());
+  for (const block of audio) validateMetaKeys("audio content meta", block.meta, new Set());
+
+  if (audio.length !== 1) {
+    throw new GenerationValidationError(`${input.declaration.model} requires exactly one reference audio`);
   }
 }
 
@@ -128,6 +147,10 @@ function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
     validateQwen(input, text, audio);
     return;
   }
+  if (QWEN3_TTS_CLONE_MODELS.has(input.declaration.model)) {
+    validateQwen3TtsClone(input, text, audio);
+    return;
+  }
   if (input.declaration.model === HIGGS_MODEL) {
     validateHiggs(input, text, audio);
     return;
@@ -151,6 +174,11 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
   if (QWEN_MODELS.has(input.declaration.model)) {
     if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
     else payload.metadata = { voice_prompt: input.meta.voice_prompt };
+    return payload;
+  }
+
+  if (QWEN3_TTS_CLONE_MODELS.has(input.declaration.model)) {
+    if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
     return payload;
   }
 
