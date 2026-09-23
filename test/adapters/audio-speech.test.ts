@@ -339,6 +339,31 @@ describe("openai.audioSpeech adapter validation", () => {
     ).not.toThrow();
   });
 
+  it("rejects meta.voice_prompt at exactly 500 trimmed code points plus surrounding whitespace", () => {
+    // buildPayload sends the untrimmed string, and the worker counts raw length —
+    // trailing whitespace pushes the raw length past the cap even though the
+    // trimmed length is exactly at it.
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate({
+        model: "cosyvoice-v3.5-plus",
+        content: [{ type: "text", text: "这是一段长度足够的语音设计试听文本。" }],
+        meta: { voice_prompt: ` ${"a".repeat(500)} ` },
+      }),
+    ).toThrow("meta.voice_prompt must be at most 500 Unicode code points");
+  });
+
+  it("rejects voice-design input at exactly 200 trimmed code points plus surrounding whitespace", () => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate({
+        model: "cosyvoice-v3.5-plus",
+        content: [{ type: "text", text: ` ${"a".repeat(200)} ` }],
+        meta: { voice_prompt: "声音" },
+      }),
+    ).toThrow("voice design requires input of at most 200 Unicode code points");
+  });
+
   it.each<{ label: string; request: GenerateRequest }>([
     { label: "request typo", request: designRequest({ meta: { voice_promt: "拼错" } }) },
     {

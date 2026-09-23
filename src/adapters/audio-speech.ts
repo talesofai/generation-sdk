@@ -93,12 +93,15 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   if (voicePrompt !== undefined && !hasVoicePrompt) {
     throw new GenerationValidationError(`${input.declaration.model} meta.voice_prompt must be a non-empty string`);
   }
-  // Length checks below (here and on `text`) count trimmed code points, matching
-  // the worker's own bounds, but buildPayload sends the untrimmed original string
-  // (deliberate — see the wire-contract preservation tests). A value that's exactly
-  // at a cap plus surrounding whitespace can therefore pass here and still get
-  // rejected downstream: a narrow, known gap, not a correctness bug in either layer.
-  if (hasVoicePrompt && Array.from(voicePrompt.trim()).length > VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS) {
+  // Upper-bound checks below (here and on `text`) count the RAW string's code
+  // points, not the trimmed one: buildPayload sends the untrimmed original
+  // string (deliberate — see the wire-contract preservation tests), and the
+  // worker counts with plain len() on what it receives, so validating here
+  // against anything shorter than what's actually sent could let through a
+  // value the worker then rejects. Lower-bound/non-empty checks stay on the
+  // trimmed string — trimmed-length >= a minimum only strengthens the
+  // guarantee, since trimming can only shorten a string.
+  if (hasVoicePrompt && Array.from(voicePrompt).length > VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS) {
     throw new GenerationValidationError(
       `${input.declaration.model} meta.voice_prompt must be at most ${VOICE_ENROLLMENT_VOICE_PROMPT_MAX_CODE_POINTS} Unicode code points`,
     );
@@ -118,8 +121,9 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   }
   // Voice design speaks exactly this text as the preview clip, so the model's
   // 15-200 character preview window applies; cloning only feeds the separate
-  // synthesis call, where long-form text is legitimate.
-  if (hasVoicePrompt && codePoints > VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS) {
+  // synthesis call, where long-form text is legitimate. Upper bound counts the
+  // raw (untrimmed) string sent by buildPayload — see the comment above.
+  if (hasVoicePrompt && Array.from(text.text).length > VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS) {
     throw new GenerationValidationError(
       `${input.declaration.model} voice design requires input of at most ${VOICE_ENROLLMENT_DESIGN_MAX_CODE_POINTS} Unicode code points`,
     );
