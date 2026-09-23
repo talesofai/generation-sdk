@@ -11,6 +11,10 @@ import {
 
 const REFERENCE_URL = "https://example.com/reference.mp3";
 const SECOND_REFERENCE_URL = "https://example.com/reference-2.mp3";
+// qwen-audio-3.0-tts-plus/flash require >=15 Unicode code points regardless
+// of design or clone mode -- reused wherever a test needs valid Qwen input
+// but doesn't care about its exact content.
+const QWEN_VALID_TEXT = "这是一段长度足够并且清晰自然的语音试听文本。";
 
 function routerSuccess(
   body: Record<string, unknown> = {},
@@ -41,9 +45,17 @@ function audio(url = REFERENCE_URL, meta?: Record<string, unknown>): GenerationC
 
 function qwenDesignRequest(overrides: Partial<GenerateRequest> = {}): GenerateRequest {
   return {
-    model: "qwen-tts",
-    content: [{ type: "text", text: "这是需要朗读的文本。" }],
+    model: "qwen-audio-3.0-tts-plus",
+    content: [{ type: "text", text: QWEN_VALID_TEXT }],
     meta: { voice_prompt: "沉稳清晰的男性播音员声音" },
+    ...overrides,
+  };
+}
+
+function qwen3CloneRequest(overrides: Partial<GenerateRequest> = {}): GenerateRequest {
+  return {
+    model: "qwen3-tts-vc-2026-01-22",
+    content: [{ type: "text", text: "短句也可以。" }, audio()],
     ...overrides,
   };
 }
@@ -69,11 +81,11 @@ describe("openai.audioSpeech adapter requests", () => {
     const { client, calls } = recordingClient(() =>
       routerSuccess({}, { headers: { "x-request-id": "request-primary", "x-oneapi-request-id": "request-fallback" } }),
     );
-    const input = "  原样保留的朗读文本。\n";
+    const input = `  ${QWEN_VALID_TEXT}\n`;
     const voicePrompt = "  沉稳清晰的声音。\n";
 
     const output = await client.generate({
-      model: "qwen-tts",
+      model: "qwen-audio-3.0-tts-plus",
       content: [{ type: "text", text: input }],
       meta: { voice_prompt: voicePrompt },
     });
@@ -85,7 +97,7 @@ describe("openai.audioSpeech adapter requests", () => {
       new Headers({ Authorization: "Bearer secret-key", "Content-Type": "application/json" }),
     );
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
+      model: "qwen-audio-3.0-tts-plus",
       input,
       metadata: { voice_prompt: voicePrompt },
     });
@@ -101,13 +113,13 @@ describe("openai.audioSpeech adapter requests", () => {
   it("maps Qwen reference audio and trims only its URL", async () => {
     const { client, calls } = recordingClient();
     await client.generate({
-      model: "qwen-tts",
-      content: [{ type: "text", text: "短句" }, audio(`  ${REFERENCE_URL}\n`)],
+      model: "qwen-audio-3.0-tts-plus",
+      content: [{ type: "text", text: QWEN_VALID_TEXT }, audio(`  ${REFERENCE_URL}\n`)],
     });
 
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
-      input: "短句",
+      model: "qwen-audio-3.0-tts-plus",
+      input: QWEN_VALID_TEXT,
       ref_audio: REFERENCE_URL,
     });
   });
@@ -121,9 +133,24 @@ describe("openai.audioSpeech adapter requests", () => {
     );
 
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-tts",
-      input: "这是需要朗读的文本。",
+      model: "qwen-audio-3.0-tts-plus",
+      input: QWEN_VALID_TEXT,
       metadata: { voice_prompt: "清晰女声" },
+    });
+  });
+
+  it("maps qwen3-tts-vc reference audio and trims only its URL", async () => {
+    const { client, calls } = recordingClient();
+    await client.generate(
+      qwen3CloneRequest({
+        content: [{ type: "text", text: "短句" }, audio(`  ${REFERENCE_URL}\n`)],
+      }),
+    );
+
+    expect(requestBody(calls[0])).toEqual({
+      model: "qwen3-tts-vc-2026-01-22",
+      input: "短句",
+      ref_audio: REFERENCE_URL,
     });
   });
 
@@ -198,8 +225,8 @@ describe("openai.audioSpeech adapter validation", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
       client.validate({
-        model: "qwen-tts",
-        content: [{ type: "text", text: "有效语音文本" }],
+        model: "qwen-audio-3.0-tts-plus",
+        content: [{ type: "text", text: QWEN_VALID_TEXT }],
         meta: { preview_text: "已经失效的文本来源" },
       }),
     ).toThrow("requires one reference audio or meta.voice_prompt");
@@ -233,19 +260,35 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it("enforces Qwen reference limits inside the adapter hook when a declaration is overridden", () => {
-    const declaration = getBuiltinGenerationModel("qwen-tts");
-    if (!declaration) throw new Error("qwen-tts declaration is unavailable");
+    const declaration = getBuiltinGenerationModel("qwen-audio-3.0-tts-plus");
+    if (!declaration) throw new Error("qwen-audio-3.0-tts-plus declaration is unavailable");
     const audioSpec = declaration.content.input.find((spec) => spec.type === "audio");
-    if (!audioSpec) throw new Error("qwen-tts audio spec is unavailable");
+    if (!audioSpec) throw new Error("qwen-audio-3.0-tts-plus audio spec is unavailable");
     audioSpec.max = 2;
     const client = createGenerationClient({ models: [declaration], includeBuiltinModels: false, apiKey: "key" });
 
     expect(() =>
       client.validate({
-        model: "qwen-tts",
+        model: "qwen-audio-3.0-tts-plus",
         content: [{ type: "text", text: "文本" }, audio(), audio(SECOND_REFERENCE_URL)],
       }),
     ).toThrow("supports at most one reference audio");
+  });
+
+  it("enforces qwen3-tts-vc reference limits inside the adapter hook when a declaration is overridden", () => {
+    const declaration = getBuiltinGenerationModel("qwen3-tts-vc-2026-01-22");
+    if (!declaration) throw new Error("qwen3-tts-vc-2026-01-22 declaration is unavailable");
+    const audioSpec = declaration.content.input.find((spec) => spec.type === "audio");
+    if (!audioSpec) throw new Error("qwen3-tts-vc-2026-01-22 audio spec is unavailable");
+    audioSpec.max = 2;
+    const client = createGenerationClient({ models: [declaration], includeBuiltinModels: false, apiKey: "key" });
+
+    expect(() =>
+      client.validate({
+        model: "qwen3-tts-vc-2026-01-22",
+        content: [{ type: "text", text: "文本" }, audio(), audio(SECOND_REFERENCE_URL)],
+      }),
+    ).toThrow("requires exactly one reference audio");
   });
 
   it("enforces Higgs reference limits inside the adapter hook when a declaration is overridden", () => {
@@ -282,11 +325,28 @@ describe("openai.audioSpeech adapter validation", () => {
   it.each([
     { model: "qwen-audio-3.0-tts-plus", text: "a".repeat(15) },
     { model: "qwen-audio-3.0-tts-flash", text: ` ${"😀".repeat(15)} ` },
-    { model: "qwen-tts", text: "短" },
-    { model: "qwen-tts", text: "a".repeat(40) },
   ])("accepts the $model input boundary", ({ model, text }) => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).not.toThrow();
+  });
+
+  it.each(["短", "a".repeat(40)])("accepts qwen3-tts-vc input of any length: %s", (text) => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() => client.validate(qwen3CloneRequest({ content: [{ type: "text", text }, audio()] }))).not.toThrow();
+  });
+
+  it("rejects qwen3-tts-vc voice_prompt entirely -- clone-only, no voice-design mode", () => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate(qwen3CloneRequest({ meta: { voice_prompt: "声音" } })),
+    ).toThrow("Unknown request.meta field: voice_prompt");
+  });
+
+  it("rejects qwen3-tts-vc with no reference audio via the declared content schema", () => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate(qwen3CloneRequest({ content: [{ type: "text", text: "文本" }] })),
+    ).toThrow("Missing required audio content block");
   });
 
   it.each<{ label: string; request: GenerateRequest }>([

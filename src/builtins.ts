@@ -708,15 +708,10 @@ function geminiImageModel(
   };
 }
 
-function qwenTtsModel(
-  model: string,
-  title: string,
-  description: string,
-  options: { minimumTextCodePoints?: number } = {},
-): GenerationModelDeclaration {
-  const text = options.minimumTextCodePoints
-    ? "这是一段长度足够并且表达清晰自然的语音合成测试文本。"
-    : "这是一次清晰自然的语音合成测试。";
+const QWEN_AUDIO_3_MINIMUM_TEXT_CODE_POINTS = 15;
+
+function qwenTtsModel(model: string, title: string, description: string): GenerationModelDeclaration {
+  const text = "这是一段长度足够并且表达清晰自然的语音合成测试文本。";
   return {
     schema: MODEL_SCHEMA,
     model,
@@ -730,9 +725,7 @@ function qwenTtsModel(
           required: true,
           min: 1,
           max: 1,
-          description: options.minimumTextCodePoints
-            ? `Exactly one non-empty text block to speak, with at least ${options.minimumTextCodePoints} Unicode code points.`
-            : "Exactly one non-empty text block to speak.",
+          description: `Exactly one non-empty text block to speak, with at least ${QWEN_AUDIO_3_MINIMUM_TEXT_CODE_POINTS} Unicode code points.`,
         },
         {
           type: "audio",
@@ -775,23 +768,62 @@ function qwenTtsModel(
   };
 }
 
+function qwen3TtsCloneModel(model: string, title: string, description: string): GenerationModelDeclaration {
+  return {
+    schema: MODEL_SCHEMA,
+    model,
+    title,
+    description,
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "Exactly one non-empty text block to speak.",
+        },
+        {
+          type: "audio",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description: "Required reference audio URL to clone. Dependency: use prior generated audio.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Voice clone",
+        request: {
+          model,
+          content: [
+            { type: "text", text: "这是一次清晰自然的语音合成测试。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+    ],
+  };
+}
+
 const audioSpeechModels = [
-  qwenTtsModel(
-    "qwen-tts",
-    "Qwen TTS",
-    "Modes: voice_prompt design OR one-reference clone. Default: unspecified Qwen design. Text: any length. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+  qwen3TtsCloneModel(
+    "qwen3-tts-vc-2026-01-22",
+    "Qwen3 TTS Voice Clone",
+    "Clone-only: requires exactly one reference audio; no voice-design mode. Text: any length. Conflict: N/A, single mode. Dependency: clone prior generated audio.",
   ),
   qwenTtsModel(
     "qwen-audio-3.0-tts-plus",
     "Qwen Audio 3.0 TTS Plus",
     "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
-    { minimumTextCodePoints: 15 },
   ),
   qwenTtsModel(
     "qwen-audio-3.0-tts-flash",
     "Qwen Audio 3.0 TTS Flash",
     "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
-    { minimumTextCodePoints: 15 },
   ),
   {
     schema: MODEL_SCHEMA,
